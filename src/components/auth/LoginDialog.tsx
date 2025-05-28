@@ -17,7 +17,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useApp();
+  const { login, loginWithGoogle } = useApp();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,6 +45,21 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }
     setIsLoading(false);
   };
 
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    const success = await loginWithGoogle();
+    
+    if (success) {
+      toast({
+        title: "Welcome!",
+        description: "You have been successfully logged in with Google.",
+      });
+      if (onOpenChange) onOpenChange(false);
+    }
+    
+    setIsLoading(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -52,36 +67,57 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }
         <DialogHeader>
           <DialogTitle>Sign In</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Signing in...' : 'Sign In'}
+        
+        <div className="space-y-4">
+          <Button 
+            onClick={handleGoogleLogin} 
+            variant="outline" 
+            className="w-full"
+            disabled={isLoading}
+          >
+            Continue with Google
           </Button>
-          <p className="text-sm text-grey-600 text-center">
-            Demo: Use any email and password to login
-          </p>
-        </form>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+            <p className="text-sm text-grey-600 text-center">
+              Demo: Use admin@agri.com for admin access, or any email/password for user
+            </p>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

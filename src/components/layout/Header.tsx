@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,14 +11,15 @@ import LoginDialog from '@/components/auth/LoginDialog';
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const { cartCount, isLoggedIn, searchQuery, setSearchQuery } = useApp();
+  const { cartCount, isLoggedIn, searchQuery, setSearchQuery, user } = useApp();
   const navigate = useNavigate();
 
   const navigation = [
-    { name: 'Categories', href: '/categories' },
     { name: 'Products', href: '/products' },
     { name: 'About', href: '/about' },
     { name: 'Contact', href: '/contact' },
+    ...(user?.isAdmin ? [{ name: 'Admin', href: '/admin' }] : []),
+    ...(isLoggedIn ? [{ name: 'My Orders', href: '/orders' }] : [])
   ];
 
   const handleSearch = (e: React.FormEvent) => {
