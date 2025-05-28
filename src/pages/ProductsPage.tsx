@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Filter, Grid, List, ChevronDown } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -10,10 +9,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Slider } from '@/components/ui/slider';
+import { useApp } from '@/contexts/AppContext';
+import { useSearchParams } from 'react-router-dom';
 
 const ProductsPage = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [priceRange, setPriceRange] = useState([0, 100000]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('featured');
+  const [inStockOnly, setInStockOnly] = useState(false);
+  
+  const { searchQuery } = useApp();
+  const [searchParams] = useSearchParams();
+  const searchFromUrl = searchParams.get('search') || '';
 
   const products = [
     {
@@ -28,7 +37,8 @@ const ProductsPage = () => {
       sku: "HON-PW-GX25",
       discount: 12,
       inStock: true,
-      badge: "Best Seller"
+      badge: "Best Seller",
+      brand: "Honda"
     },
     {
       id: 2,
@@ -42,7 +52,8 @@ const ProductsPage = () => {
       sku: "PRO-EA-52CC",
       discount: 17,
       inStock: true,
-      badge: "New Arrival"
+      badge: "New Arrival",
+      brand: "Mahindra"
     },
     {
       id: 3,
@@ -56,7 +67,8 @@ const ProductsPage = () => {
       sku: "AUTO-SP-200",
       discount: 13,
       inStock: true,
-      badge: "Eco-Friendly"
+      badge: "Eco-Friendly",
+      brand: "Kirloskar"
     },
     {
       id: 4,
@@ -70,7 +82,8 @@ const ProductsPage = () => {
       sku: "DIES-WP-3HP",
       discount: 12,
       inStock: true,
-      badge: "Heavy Duty"
+      badge: "Heavy Duty",
+      brand: "Kirloskar"
     },
     {
       id: 5,
@@ -83,8 +96,9 @@ const ProductsPage = () => {
       category: "Sprayers",
       sku: "BATT-SPR-16L",
       discount: 15,
-      inStock: true,
-      badge: "Portable"
+      inStock: false,
+      badge: "Portable",
+      brand: "Bajaj"
     },
     {
       id: 6,
@@ -98,7 +112,8 @@ const ProductsPage = () => {
       sku: "PRO-BC-430",
       discount: 17,
       inStock: true,
-      badge: "Popular"
+      badge: "Popular",
+      brand: "Honda"
     },
     {
       id: 7,
@@ -112,7 +127,8 @@ const ProductsPage = () => {
       sku: "ELEC-CC-3HP",
       discount: 11,
       inStock: true,
-      badge: "Energy Efficient"
+      badge: "Energy Efficient",
+      brand: "Crompton"
     },
     {
       id: 8,
@@ -126,7 +142,8 @@ const ProductsPage = () => {
       sku: "AUTO-MM-250",
       discount: 11,
       inStock: true,
-      badge: "Premium"
+      badge: "Premium",
+      brand: "Fieldking"
     },
     {
       id: 9,
@@ -140,7 +157,8 @@ const ProductsPage = () => {
       sku: "RUB-CM-6X4",
       discount: 17,
       inStock: true,
-      badge: "Comfort"
+      badge: "Comfort",
+      brand: "Bajaj"
     },
     {
       id: 10,
@@ -154,7 +172,8 @@ const ProductsPage = () => {
       sku: "ELEC-FOG-1KW",
       discount: 14,
       inStock: true,
-      badge: "Efficient"
+      badge: "Efficient",
+      brand: "Crompton"
     },
     {
       id: 11,
@@ -168,7 +187,8 @@ const ProductsPage = () => {
       sku: "CORD-DR-18V",
       discount: 13,
       inStock: true,
-      badge: "Versatile"
+      badge: "Versatile",
+      brand: "Honda"
     },
     {
       id: 12,
@@ -182,7 +202,8 @@ const ProductsPage = () => {
       sku: "PRO-CS-20IN",
       discount: 15,
       inStock: true,
-      badge: "Professional"
+      badge: "Professional",
+      brand: "Fieldking"
     }
   ];
 
@@ -209,6 +230,80 @@ const ProductsPage = () => {
   
   const brands = ['Honda', 'Mahindra', 'Kirloskar', 'Crompton', 'Bajaj', 'Fieldking'];
 
+  // Filter and sort products
+  const filteredProducts = useMemo(() => {
+    let filtered = products.filter(product => {
+      // Price filter
+      if (product.price < priceRange[0] || product.price > priceRange[1]) return false;
+      
+      // Category filter
+      if (selectedCategories.length > 0 && !selectedCategories.includes(product.category)) return false;
+      
+      // Brand filter
+      if (selectedBrands.length > 0 && !selectedBrands.includes(product.brand)) return false;
+      
+      // Stock filter
+      if (inStockOnly && !product.inStock) return false;
+      
+      // Search filter
+      const searchTerm = searchFromUrl || searchQuery;
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        return (
+          product.name.toLowerCase().includes(search) ||
+          product.category.toLowerCase().includes(search) ||
+          product.brand.toLowerCase().includes(search)
+        );
+      }
+      
+      return true;
+    });
+
+    // Sort products
+    switch (sortBy) {
+      case 'price-low':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high':
+        filtered.sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        filtered.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'newest':
+        filtered.sort((a, b) => b.id - a.id);
+        break;
+      default:
+        // featured - keep original order
+        break;
+    }
+
+    return filtered;
+  }, [products, priceRange, selectedCategories, selectedBrands, inStockOnly, sortBy, searchQuery, searchFromUrl]);
+
+  const handleCategoryChange = (category: string, checked: boolean) => {
+    if (checked) {
+      setSelectedCategories(prev => [...prev, category]);
+    } else {
+      setSelectedCategories(prev => prev.filter(c => c !== category));
+    }
+  };
+
+  const handleBrandChange = (brand: string, checked: boolean) => {
+    if (checked) {
+      setSelectedBrands(prev => [...prev, brand]);
+    } else {
+      setSelectedBrands(prev => prev.filter(b => b !== brand));
+    }
+  };
+
+  const resetFilters = () => {
+    setPriceRange([0, 100000]);
+    setSelectedCategories([]);
+    setSelectedBrands([]);
+    setInStockOnly(false);
+  };
+
   const FilterPanel = () => (
     <div className="space-y-6">
       <div>
@@ -233,7 +328,11 @@ const ProductsPage = () => {
         <div className="space-y-3 max-h-64 overflow-y-auto">
           {categories.map((category) => (
             <div key={category} className="flex items-center space-x-2">
-              <Checkbox id={category} />
+              <Checkbox 
+                id={category}
+                checked={selectedCategories.includes(category)}
+                onCheckedChange={(checked) => handleCategoryChange(category, checked as boolean)}
+              />
               <label htmlFor={category} className="text-sm text-grey-600 cursor-pointer">
                 {category}
               </label>
@@ -247,7 +346,11 @@ const ProductsPage = () => {
         <div className="space-y-3">
           {brands.map((brand) => (
             <div key={brand} className="flex items-center space-x-2">
-              <Checkbox id={brand} />
+              <Checkbox 
+                id={brand}
+                checked={selectedBrands.includes(brand)}
+                onCheckedChange={(checked) => handleBrandChange(brand, checked as boolean)}
+              />
               <label htmlFor={brand} className="text-sm text-grey-600 cursor-pointer">
                 {brand}
               </label>
@@ -260,21 +363,19 @@ const ProductsPage = () => {
         <h3 className="font-semibold text-grey-800 mb-4">Availability</h3>
         <div className="space-y-3">
           <div className="flex items-center space-x-2">
-            <Checkbox id="in-stock" />
+            <Checkbox 
+              id="in-stock"
+              checked={inStockOnly}
+              onCheckedChange={(checked) => setInStockOnly(checked as boolean)}
+            />
             <label htmlFor="in-stock" className="text-sm text-grey-600 cursor-pointer">
-              In Stock
-            </label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox id="out-of-stock" />
-            <label htmlFor="out-of-stock" className="text-sm text-grey-600 cursor-pointer">
-              Out of Stock
+              In Stock Only
             </label>
           </div>
         </div>
       </div>
 
-      <Button className="w-full" variant="outline">
+      <Button className="w-full" variant="outline" onClick={resetFilters}>
         Reset Filters
       </Button>
     </div>
@@ -288,8 +389,15 @@ const ProductsPage = () => {
         <div className="container mx-auto px-4 py-8">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-grey-800 mb-2">All Products</h1>
-            <p className="text-grey-600">Discover our complete range of farming equipment and agricultural supplies</p>
+            <h1 className="text-3xl font-bold text-grey-800 mb-2">
+              {searchFromUrl || searchQuery ? `Search Results for "${searchFromUrl || searchQuery}"` : 'All Products'}
+            </h1>
+            <p className="text-grey-600">
+              {searchFromUrl || searchQuery 
+                ? `Found ${filteredProducts.length} products matching your search`
+                : 'Discover our complete range of farming equipment and agricultural supplies'
+              }
+            </p>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-8">
@@ -325,13 +433,13 @@ const ProductsPage = () => {
                   </Sheet>
 
                   <span className="text-sm text-grey-600">
-                    Showing {products.length} of {products.length + 52} products
+                    Showing {filteredProducts.length} of {products.length} products
                   </span>
                 </div>
 
                 <div className="flex items-center space-x-4">
                   {/* Sort */}
-                  <Select>
+                  <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
@@ -367,26 +475,43 @@ const ProductsPage = () => {
               </div>
 
               {/* Products Grid */}
-              <div className={`grid gap-6 ${
-                viewMode === 'grid' 
-                  ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' 
-                  : 'grid-cols-1'
-              }`}>
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-16">
+                  <h3 className="text-2xl font-bold text-grey-800 mb-2">No products found</h3>
+                  <p className="text-grey-600 mb-4">
+                    {searchFromUrl || searchQuery 
+                      ? 'Try adjusting your search terms or filters'
+                      : 'Try adjusting your filters'
+                    }
+                  </p>
+                  <Button onClick={resetFilters} variant="outline">
+                    Clear Filters
+                  </Button>
+                </div>
+              ) : (
+                <div className={`grid gap-6 ${
+                  viewMode === 'grid' 
+                    ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' 
+                    : 'grid-cols-1'
+                }`}>
+                  {filteredProducts.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              )}
 
               {/* Pagination */}
-              <div className="flex justify-center mt-12">
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">Previous</Button>
-                  <Button variant="default" size="sm">1</Button>
-                  <Button variant="outline" size="sm">2</Button>
-                  <Button variant="outline" size="sm">3</Button>
-                  <Button variant="outline" size="sm">Next</Button>
+              {filteredProducts.length > 0 && (
+                <div className="flex justify-center mt-12">
+                  <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm">Previous</Button>
+                    <Button variant="default" size="sm">1</Button>
+                    <Button variant="outline" size="sm">2</Button>
+                    <Button variant="outline" size="sm">3</Button>
+                    <Button variant="outline" size="sm">Next</Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

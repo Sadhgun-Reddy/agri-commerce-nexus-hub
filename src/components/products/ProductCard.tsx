@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
+import { useApp } from '@/contexts/AppContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: {
@@ -24,12 +26,25 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+  const { addToCart } = useApp();
+  const { toast } = useToast();
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(price);
+  };
+
+  const handleAddToCart = () => {
+    if (product.inStock) {
+      addToCart(product);
+      toast({
+        title: "Added to cart!",
+        description: `${product.name} has been added to your cart.`,
+      });
+    }
   };
 
   return (
@@ -126,6 +141,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             className="w-full" 
             size="sm"
             disabled={!product.inStock}
+            onClick={handleAddToCart}
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
             {product.inStock ? 'Add to Cart' : 'Out of Stock'}

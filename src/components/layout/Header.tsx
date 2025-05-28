@@ -5,11 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useApp } from '@/contexts/AppContext';
+import LoginDialog from '@/components/auth/LoginDialog';
 
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [cartCount] = useState(3);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const { cartCount, isLoggedIn, searchQuery, setSearchQuery } = useApp();
+  const navigate = useNavigate();
 
   const navigation = [
     { name: 'Categories', href: '/categories' },
@@ -17,6 +21,22 @@ const Header = () => {
     { name: 'About', href: '/about' },
     { name: 'Contact', href: '/contact' },
   ];
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+    }
+  };
+
+  const handleProfileClick = () => {
+    if (isLoggedIn) {
+      navigate('/profile');
+    } else {
+      setShowLoginDialog(true);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -46,13 +66,15 @@ const Header = () => {
 
         {/* Search Bar */}
         <div className="hidden md:flex flex-1 max-w-md mx-4">
-          <div className="relative w-full">
+          <form onSubmit={handleSearch} className="relative w-full">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search for farming equipment..."
               className="pl-10 pr-4"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </form>
         </div>
 
         {/* Right side actions */}
@@ -68,11 +90,9 @@ const Header = () => {
           </Button>
 
           {/* Account */}
-          <Link to="/account">
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
-          </Link>
+          <Button variant="ghost" size="icon" onClick={handleProfileClick}>
+            <User className="h-5 w-5" />
+          </Button>
 
           {/* Cart */}
           <Link to="/cart">
@@ -116,15 +136,22 @@ const Header = () => {
       {/* Mobile search bar */}
       {isSearchOpen && (
         <div className="border-t bg-background p-4 md:hidden">
-          <div className="relative">
+          <form onSubmit={handleSearch} className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search for farming equipment..."
               className="pl-10 pr-4"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+          </form>
         </div>
       )}
+
+      <LoginDialog 
+        open={showLoginDialog} 
+        onOpenChange={setShowLoginDialog}
+      />
     </header>
   );
 };

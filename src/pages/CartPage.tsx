@@ -8,38 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Link } from 'react-router-dom';
+import { useApp } from '@/contexts/AppContext';
 
 const CartPage = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "Mahindra 575 DI Tractor",
-      price: 850000,
-      quantity: 1,
-      image: "https://images.unsplash.com/photo-1581090464777-f3220bbe1b8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80",
-      sku: "MAH-575-DI",
-      inStock: true,
-    },
-    {
-      id: 2,
-      name: "Professional Sprayer 200L",
-      price: 45000,
-      quantity: 2,
-      image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80",
-      sku: "SPR-200L",
-      inStock: true,
-    },
-    {
-      id: 3,
-      name: "Organic Fertilizer 50kg",
-      price: 1200,
-      quantity: 5,
-      image: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80",
-      sku: "ORG-FERT-50",
-      inStock: true,
-    },
-  ]);
-
+  const { cartItems, updateQuantity, removeFromCart } = useApp();
   const [promoCode, setPromoCode] = useState('');
 
   const formatPrice = (price: number) => {
@@ -48,19 +20,6 @@ const CartPage = () => {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(price);
-  };
-
-  const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
-  };
-
-  const removeItem = (id: number) => {
-    setCartItems(items => items.filter(item => item.id !== id));
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -152,7 +111,7 @@ const CartPage = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeFromCart(item.id)}
                           className="text-red-500 hover:text-red-700 mt-2"
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
