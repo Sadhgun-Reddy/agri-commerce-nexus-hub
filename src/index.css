@@ -101,11 +101,11 @@
 
 @layer components {
   .animate-card-hover {
-    @apply transition transform duration-[var(--fast)] ease-out hover:-translate-y-0.5 hover:shadow-level-2;
+    @apply transition transform duration-100 ease-out hover:-translate-y-0.5 hover:shadow-level-2;
   }
   
   .animate-chip-tap {
-    @apply active:scale-90 transition duration-[var(--fast)] ease-out;
+    @apply active:scale-90 transition duration-100 ease-out;
   }
   
   .prose-drop-cap p:first-of-type::first-letter {
