@@ -10,60 +10,116 @@ const FeaturedProducts = () => {
   const products = [
     {
       id: 1,
-      name: "Mahindra 575 DI Tractor",
-      price: 850000,
-      originalPrice: 950000,
+      name: "Honda Power Weeder GX25",
+      price: 28000,
+      originalPrice: 32000,
       rating: 4.8,
       reviews: 124,
       image: "https://images.unsplash.com/photo-1581090464777-f3220bbe1b8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-      category: "Tractors",
-      sku: "MAH-575-DI",
-      discount: 11,
+      category: "Intercultivators/Power weeders",
+      sku: "HON-PW-GX25",
+      discount: 12,
       inStock: true,
       badge: "Best Seller"
     },
     {
       id: 2,
-      name: "Professional Sprayer 200L",
-      price: 45000,
-      originalPrice: 52000,
+      name: "Professional Earth Auger 52cc",
+      price: 15000,
+      originalPrice: 18000,
       rating: 4.6,
       reviews: 89,
       image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-      category: "Equipment",
-      sku: "SPR-200L",
-      discount: 13,
+      category: "Earth Augers",
+      sku: "PRO-EA-52CC",
+      discount: 17,
       inStock: true,
       badge: "New Arrival"
     },
     {
       id: 3,
-      name: "Drip Irrigation Kit",
-      price: 25000,
-      originalPrice: 28000,
+      name: "Automatic Seed Planter SP200",
+      price: 45000,
+      originalPrice: 52000,
       rating: 4.7,
       reviews: 156,
       image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-      category: "Irrigation",
-      sku: "DIP-KIT-500",
-      discount: 11,
+      category: "Seeders/planters",
+      sku: "AUTO-SP-200",
+      discount: 13,
       inStock: true,
       badge: "Eco-Friendly"
     },
     {
       id: 4,
-      name: "Organic Fertilizer 50kg",
-      price: 1200,
-      originalPrice: 1400,
+      name: "Diesel Water Pump 3HP",
+      price: 35000,
+      originalPrice: 40000,
       rating: 4.5,
       reviews: 203,
       image: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-      category: "Fertilizers",
-      sku: "ORG-FERT-50",
-      discount: 14,
+      category: "Waterpumps & Engines",
+      sku: "DIES-WP-3HP",
+      discount: 12,
       inStock: true,
-      badge: "Organic"
+      badge: "Heavy Duty"
     },
+    {
+      id: 5,
+      name: "Battery Sprayer 16L",
+      price: 8500,
+      originalPrice: 10000,
+      rating: 4.4,
+      reviews: 167,
+      image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+      category: "Sprayers",
+      sku: "BATT-SPR-16L",
+      discount: 15,
+      inStock: true,
+      badge: "Portable"
+    },
+    {
+      id: 6,
+      name: "Professional Brush Cutter BC430",
+      price: 12000,
+      originalPrice: 14500,
+      rating: 4.6,
+      reviews: 134,
+      image: "https://images.unsplash.com/photo-1581090464777-f3220bbe1b8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+      category: "Brush cutters",
+      sku: "PRO-BC-430",
+      discount: 17,
+      inStock: true,
+      badge: "Popular"
+    },
+    {
+      id: 7,
+      name: "Electric Chaff Cutter 3HP",
+      price: 25000,
+      originalPrice: 28000,
+      rating: 4.7,
+      reviews: 98,
+      image: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+      category: "Chaff cutters",
+      sku: "ELEC-CC-3HP",
+      discount: 11,
+      inStock: true,
+      badge: "Energy Efficient"
+    },
+    {
+      id: 8,
+      name: "Automatic Milking Machine MM250",
+      price: 85000,
+      originalPrice: 95000,
+      rating: 4.8,
+      reviews: 76,
+      image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
+      category: "Milking machines",
+      sku: "AUTO-MM-250",
+      discount: 11,
+      inStock: true,
+      badge: "Premium"
+    }
   ];
 
   const formatPrice = (price: number) => {
@@ -87,7 +143,7 @@ const FeaturedProducts = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
+          {products.slice(0, 8).map((product) => (
             <Card key={product.id} className="group overflow-hidden border-0 shadow-level-1 hover:shadow-level-2 transition-all duration-200">
               <div className="relative">
                 <Link to={`/product/${product.sku}`}>
