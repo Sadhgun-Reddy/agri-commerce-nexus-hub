@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Wrench, Drill, Sprout, Droplets, Spray, Scissors, Package, Milk, Square, Wind, Hammer, Zap, Recycle, Wheat, Cog, Factory, Zap as ZapIcon, Tractor } from 'lucide-react';
+import { Wrench, Drill, Sprout, Droplets, SprayCanIcon, Scissors, Package, Milk, Square, Wind, Hammer, Zap, Recycle, Wheat, Cog, Factory, Zap as ZapIcon, Tractor } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 
@@ -41,7 +40,7 @@ const CategoryRail = () => {
     {
       id: 5,
       name: 'Sprayers',
-      icon: Spray,
+      icon: SprayCanIcon,
       description: 'Crop spraying equipment',
       href: '/category/sprayers',
       color: 'bg-purple-500',
