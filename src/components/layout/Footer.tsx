@@ -31,10 +31,6 @@ const Footer = () => {
     ],
   };
 
-  const paymentMethods = [
-    'Visa', 'Mastercard', 'UPI', 'Razorpay', 'Net Banking'
-  ];
-
   return (
     <footer className="bg-grey-50 border-t">
       <div className="container mx-auto px-4 py-12">
@@ -132,23 +128,6 @@ const Footer = () => {
               <social.icon className="h-5 w-5" />
             </a>
           ))}
-        </div>
-
-        {/* Payment Methods */}
-        <div className="mt-8 pt-6 border-t">
-          <div className="text-center">
-            <p className="text-sm text-grey-600 mb-4">We accept</p>
-            <div className="flex justify-center items-center space-x-4 flex-wrap">
-              {paymentMethods.map((method) => (
-                <div
-                  key={method}
-                  className="px-3 py-1 bg-white border rounded text-sm text-grey-600"
-                >
-                  {method}
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Copyright */}

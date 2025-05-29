@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { CreditCard, Truck, Shield, ArrowLeft } from 'lucide-react';
+import { CreditCard, Truck, Shield, ArrowLeft, Smartphone, Landmark } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { useApp } from '@/contexts/AppContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +19,7 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('card');
 
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -32,8 +35,19 @@ const CheckoutPage = () => {
     cardNumber: '',
     expiryDate: '',
     cvv: '',
-    cardName: ''
+    cardName: '',
+    upiId: ''
   });
+
+  const indianStates = [
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 
+    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 
+    'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 
+    'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 
+    'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+    'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 
+    'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+  ];
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -153,10 +167,11 @@ const CheckoutPage = () => {
                           <SelectValue placeholder="State" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="maharashtra">Maharashtra</SelectItem>
-                          <SelectItem value="karnataka">Karnataka</SelectItem>
-                          <SelectItem value="gujarat">Gujarat</SelectItem>
-                          <SelectItem value="rajasthan">Rajasthan</SelectItem>
+                          {indianStates.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <Input
@@ -169,41 +184,102 @@ const CheckoutPage = () => {
                   </CardContent>
                 </Card>
 
+                {/* Payment Method Selection */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Payment Method</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                        <RadioGroupItem value="card" id="card" />
+                        <Label htmlFor="card" className="flex items-center space-x-2 cursor-pointer">
+                          <CreditCard className="w-5 h-5" />
+                          <span>Credit/Debit Card</span>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                        <RadioGroupItem value="upi" id="upi" />
+                        <Label htmlFor="upi" className="flex items-center space-x-2 cursor-pointer">
+                          <Smartphone className="w-5 h-5" />
+                          <span>UPI</span>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2 p-4 border rounded-lg">
+                        <RadioGroupItem value="netbanking" id="netbanking" />
+                        <Label htmlFor="netbanking" className="flex items-center space-x-2 cursor-pointer">
+                          <Landmark className="w-5 h-5" />
+                          <span>Net Banking</span>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </CardContent>
+                </Card>
+
                 {/* Payment Information */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <CreditCard className="w-5 h-5 mr-2" />
+                      {paymentMethod === 'card' && <CreditCard className="w-5 h-5 mr-2" />}
+                      {paymentMethod === 'upi' && <Smartphone className="w-5 h-5 mr-2" />}
+                      {paymentMethod === 'netbanking' && <Landmark className="w-5 h-5 mr-2" />}
                       Payment Information
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <Input
-                      placeholder="Card Number"
-                      value={paymentInfo.cardNumber}
-                      onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardNumber: e.target.value }))}
-                      required
-                    />
-                    <Input
-                      placeholder="Cardholder Name"
-                      value={paymentInfo.cardName}
-                      onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardName: e.target.value }))}
-                      required
-                    />
-                    <div className="grid grid-cols-2 gap-4">
+                    {paymentMethod === 'card' && (
+                      <>
+                        <Input
+                          placeholder="Card Number"
+                          value={paymentInfo.cardNumber}
+                          onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardNumber: e.target.value }))}
+                          required
+                        />
+                        <Input
+                          placeholder="Cardholder Name"
+                          value={paymentInfo.cardName}
+                          onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardName: e.target.value }))}
+                          required
+                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input
+                            placeholder="MM/YY"
+                            value={paymentInfo.expiryDate}
+                            onChange={(e) => setPaymentInfo(prev => ({ ...prev, expiryDate: e.target.value }))}
+                            required
+                          />
+                          <Input
+                            placeholder="CVV"
+                            value={paymentInfo.cvv}
+                            onChange={(e) => setPaymentInfo(prev => ({ ...prev, cvv: e.target.value }))}
+                            required
+                          />
+                        </div>
+                      </>
+                    )}
+                    {paymentMethod === 'upi' && (
                       <Input
-                        placeholder="MM/YY"
-                        value={paymentInfo.expiryDate}
-                        onChange={(e) => setPaymentInfo(prev => ({ ...prev, expiryDate: e.target.value }))}
+                        placeholder="UPI ID (e.g., yourname@paytm)"
+                        value={paymentInfo.upiId}
+                        onChange={(e) => setPaymentInfo(prev => ({ ...prev, upiId: e.target.value }))}
                         required
                       />
-                      <Input
-                        placeholder="CVV"
-                        value={paymentInfo.cvv}
-                        onChange={(e) => setPaymentInfo(prev => ({ ...prev, cvv: e.target.value }))}
-                        required
-                      />
-                    </div>
+                    )}
+                    {paymentMethod === 'netbanking' && (
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your bank" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sbi">State Bank of India</SelectItem>
+                          <SelectItem value="hdfc">HDFC Bank</SelectItem>
+                          <SelectItem value="icici">ICICI Bank</SelectItem>
+                          <SelectItem value="axis">Axis Bank</SelectItem>
+                          <SelectItem value="pnb">Punjab National Bank</SelectItem>
+                          <SelectItem value="other">Other Banks</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                     <div className="flex items-center space-x-2 text-sm text-grey-600">
                       <Shield className="w-4 h-4" />
                       <span>Your payment information is encrypted and secure</span>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Filter, Grid, List, ChevronDown } from 'lucide-react';
 import Header from '@/components/layout/Header';
@@ -11,18 +12,28 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Slider } from '@/components/ui/slider';
 import { useApp } from '@/contexts/AppContext';
 import { useSearchParams } from 'react-router-dom';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 const ProductsPage = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [priceRange, setPriceRange] = useState([0, 100000]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('featured');
   const [inStockOnly, setInStockOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const productsPerPage = 15;
   
   const { searchQuery, products } = useApp();
   const [searchParams] = useSearchParams();
   const searchFromUrl = searchParams.get('search') || '';
+  const categoryFromUrl = searchParams.get('category') || '';
+
+  // Set category filter from URL on component mount
+  useEffect(() => {
+    if (categoryFromUrl && !selectedCategories.includes(categoryFromUrl)) {
+      setSelectedCategories([categoryFromUrl]);
+    }
+  }, [categoryFromUrl]);
 
   const categories = [
     'Intercultivators/Power weeders',
@@ -44,8 +55,6 @@ const ProductsPage = () => {
     'Pulverizers',
     'Lawn/Stubble Movers'
   ];
-  
-  const brands = ['Honda', 'Mahindra', 'Kirloskar', 'Crompton', 'Bajaj', 'Fieldking'];
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -56,9 +65,6 @@ const ProductsPage = () => {
       // Category filter
       if (selectedCategories.length > 0 && !selectedCategories.includes(product.category)) return false;
       
-      // Brand filter
-      if (selectedBrands.length > 0 && !selectedBrands.includes(product.brand)) return false;
-      
       // Stock filter
       if (inStockOnly && !product.inStock) return false;
       
@@ -68,8 +74,7 @@ const ProductsPage = () => {
         const search = searchTerm.toLowerCase();
         return (
           product.name.toLowerCase().includes(search) ||
-          product.category.toLowerCase().includes(search) ||
-          product.brand.toLowerCase().includes(search)
+          product.category.toLowerCase().includes(search)
         );
       }
       
@@ -96,7 +101,12 @@ const ProductsPage = () => {
     }
 
     return filtered;
-  }, [products, priceRange, selectedCategories, selectedBrands, inStockOnly, sortBy, searchQuery, searchFromUrl]);
+  }, [products, priceRange, selectedCategories, inStockOnly, sortBy, searchQuery, searchFromUrl]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  const startIndex = (currentPage - 1) * productsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + productsPerPage);
 
   const handleCategoryChange = (category: string, checked: boolean) => {
     if (checked) {
@@ -104,21 +114,14 @@ const ProductsPage = () => {
     } else {
       setSelectedCategories(prev => prev.filter(c => c !== category));
     }
-  };
-
-  const handleBrandChange = (brand: string, checked: boolean) => {
-    if (checked) {
-      setSelectedBrands(prev => [...prev, brand]);
-    } else {
-      setSelectedBrands(prev => prev.filter(b => b !== brand));
-    }
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const resetFilters = () => {
     setPriceRange([0, 100000]);
     setSelectedCategories([]);
-    setSelectedBrands([]);
     setInStockOnly(false);
+    setCurrentPage(1);
   };
 
   const FilterPanel = () => (
@@ -159,24 +162,6 @@ const ProductsPage = () => {
       </div>
 
       <div>
-        <h3 className="font-semibold text-grey-800 mb-4">Brands</h3>
-        <div className="space-y-3">
-          {brands.map((brand) => (
-            <div key={brand} className="flex items-center space-x-2">
-              <Checkbox 
-                id={brand}
-                checked={selectedBrands.includes(brand)}
-                onCheckedChange={(checked) => handleBrandChange(brand, checked as boolean)}
-              />
-              <label htmlFor={brand} className="text-sm text-grey-600 cursor-pointer">
-                {brand}
-              </label>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div>
         <h3 className="font-semibold text-grey-800 mb-4">Availability</h3>
         <div className="space-y-3">
           <div className="flex items-center space-x-2">
@@ -207,12 +192,13 @@ const ProductsPage = () => {
           {/* Page Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-grey-800 mb-2">
-              {searchFromUrl || searchQuery ? `Search Results for "${searchFromUrl || searchQuery}"` : 'All Products'}
+              {searchFromUrl || searchQuery ? `Search Results for "${searchFromUrl || searchQuery}"` : 
+               categoryFromUrl ? `${categoryFromUrl} Products` : 'All Products'}
             </h1>
             <p className="text-grey-600">
               {searchFromUrl || searchQuery 
                 ? `Found ${filteredProducts.length} products matching your search`
-                : 'Discover our complete range of farming equipment and agricultural supplies'
+                : `Showing ${filteredProducts.length} products`
               }
             </p>
           </div>
@@ -250,7 +236,7 @@ const ProductsPage = () => {
                   </Sheet>
 
                   <span className="text-sm text-grey-600">
-                    Showing {filteredProducts.length} of {products.length} products
+                    Showing {paginatedProducts.length} of {filteredProducts.length} products
                   </span>
                 </div>
 
@@ -292,7 +278,7 @@ const ProductsPage = () => {
               </div>
 
               {/* Products Grid */}
-              {filteredProducts.length === 0 ? (
+              {paginatedProducts.length === 0 ? (
                 <div className="text-center py-16">
                   <h3 className="text-2xl font-bold text-grey-800 mb-2">No products found</h3>
                   <p className="text-grey-600 mb-4">
@@ -311,22 +297,48 @@ const ProductsPage = () => {
                     ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' 
                     : 'grid-cols-1'
                 }`}>
-                  {filteredProducts.map((product) => (
+                  {paginatedProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
               )}
 
               {/* Pagination */}
-              {filteredProducts.length > 0 && (
+              {totalPages > 1 && (
                 <div className="flex justify-center mt-12">
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm">Previous</Button>
-                    <Button variant="default" size="sm">1</Button>
-                    <Button variant="outline" size="sm">2</Button>
-                    <Button variant="outline" size="sm">3</Button>
-                    <Button variant="outline" size="sm">Next</Button>
-                  </div>
+                  <Pagination>
+                    <PaginationContent>
+                      {currentPage > 1 && (
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            className="cursor-pointer"
+                          />
+                        </PaginationItem>
+                      )}
+                      
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(pageNum)}
+                            isActive={currentPage === pageNum}
+                            className="cursor-pointer"
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+                      
+                      {currentPage < totalPages && (
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            className="cursor-pointer"
+                          />
+                        </PaginationItem>
+                      )}
+                    </PaginationContent>
+                  </Pagination>
                 </div>
               )}
             </div>

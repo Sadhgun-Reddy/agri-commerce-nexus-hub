@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Wrench, Drill, Sprout, Droplets, SprayCanIcon, Scissors, Package, Milk, Square, Wind, Hammer, Zap, Recycle, Wheat, Cog, Factory, Zap as ZapIcon, Tractor } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -10,7 +11,6 @@ const CategoryRail = () => {
       name: 'Intercultivators/Power weeders',
       icon: Wrench,
       description: 'Cultivation & weeding tools',
-      href: '/category/intercultivators',
       color: 'bg-blue-500',
     },
     {
@@ -18,7 +18,6 @@ const CategoryRail = () => {
       name: 'Earth Augers',
       icon: Drill,
       description: 'Drilling & boring equipment',
-      href: '/category/earth-augers',
       color: 'bg-amber-500',
     },
     {
@@ -26,7 +25,6 @@ const CategoryRail = () => {
       name: 'Seeders/planters',
       icon: Sprout,
       description: 'Planting & seeding machines',
-      href: '/category/seeders-planters',
       color: 'bg-brand-primary-500',
     },
     {
@@ -34,7 +32,6 @@ const CategoryRail = () => {
       name: 'Waterpumps & Engines',
       icon: Droplets,
       description: 'Water pumping systems',
-      href: '/category/waterpumps-engines',
       color: 'bg-cyan-500',
     },
     {
@@ -42,7 +39,6 @@ const CategoryRail = () => {
       name: 'Sprayers',
       icon: SprayCanIcon,
       description: 'Crop spraying equipment',
-      href: '/category/sprayers',
       color: 'bg-purple-500',
     },
     {
@@ -50,7 +46,6 @@ const CategoryRail = () => {
       name: 'Brush cutters',
       icon: Scissors,
       description: 'Cutting & trimming tools',
-      href: '/category/brush-cutters',
       color: 'bg-red-500',
     },
     {
@@ -58,7 +53,6 @@ const CategoryRail = () => {
       name: 'Chaff cutters',
       icon: Package,
       description: 'Feed preparation machines',
-      href: '/category/chaff-cutters',
       color: 'bg-orange-500',
     },
     {
@@ -66,7 +60,6 @@ const CategoryRail = () => {
       name: 'Milking machines',
       icon: Milk,
       description: 'Dairy automation equipment',
-      href: '/category/milking-machines',
       color: 'bg-pink-500',
     },
     {
@@ -74,7 +67,6 @@ const CategoryRail = () => {
       name: 'Cow mats',
       icon: Square,
       description: 'Livestock comfort products',
-      href: '/category/cow-mats',
       color: 'bg-green-600',
     },
     {
@@ -82,7 +74,6 @@ const CategoryRail = () => {
       name: 'Foggers',
       icon: Wind,
       description: 'Fogging & misting systems',
-      href: '/category/foggers',
       color: 'bg-indigo-500',
     },
     {
@@ -90,7 +81,6 @@ const CategoryRail = () => {
       name: 'Power tools',
       icon: Hammer,
       description: 'Electric & pneumatic tools',
-      href: '/category/power-tools',
       color: 'bg-yellow-500',
     },
     {
@@ -98,56 +88,7 @@ const CategoryRail = () => {
       name: 'Chain Saw',
       icon: Zap,
       description: 'Cutting & pruning saws',
-      href: '/category/chain-saw',
       color: 'bg-red-600',
-    },
-    {
-      id: 13,
-      name: 'Agriculture Shredders',
-      icon: Recycle,
-      description: 'Crop residue management',
-      href: '/category/agriculture-shredders',
-      color: 'bg-teal-500',
-    },
-    {
-      id: 14,
-      name: 'Harvesting Machines',
-      icon: Wheat,
-      description: 'Crop harvesting equipment',
-      href: '/category/harvesting-machines',
-      color: 'bg-amber-600',
-    },
-    {
-      id: 15,
-      name: 'Threashers',
-      icon: Cog,
-      description: 'Grain separation machines',
-      href: '/category/threashers',
-      color: 'bg-slate-500',
-    },
-    {
-      id: 16,
-      name: 'Pillet making machines',
-      icon: Factory,
-      description: 'Feed pellet production',
-      href: '/category/pellet-making-machines',
-      color: 'bg-emerald-500',
-    },
-    {
-      id: 17,
-      name: 'Pulverizers',
-      icon: ZapIcon,
-      description: 'Grinding & crushing equipment',
-      href: '/category/pulverizers',
-      color: 'bg-violet-500',
-    },
-    {
-      id: 18,
-      name: 'Lawn/Stubble Movers',
-      icon: Tractor,
-      description: 'Field cleaning equipment',
-      href: '/category/lawn-stubble-movers',
-      color: 'bg-lime-500',
     },
   ];
 
@@ -164,8 +105,8 @@ const CategoryRail = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-          {categories.slice(0, 12).map((category) => (
-            <Link key={category.id} to={category.href}>
+          {categories.map((category) => (
+            <Link key={category.id} to={`/products?category=${encodeURIComponent(category.name)}`}>
               <Card className="p-6 text-center hover:shadow-level-2 transition-all duration-200 animate-card-hover border-0 bg-grey-50 group">
                 <div className="space-y-4">
                   <div className={`w-16 h-16 mx-auto rounded-16 ${category.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
@@ -186,9 +127,9 @@ const CategoryRail = () => {
         </div>
 
         <div className="text-center mt-10">
-          <Link to="/categories">
+          <Link to="/products">
             <button className="px-8 py-3 bg-brand-primary-500 text-white rounded-12 hover:bg-brand-primary-600 transition-colors">
-              View All Categories
+              View All Products
             </button>
           </Link>
         </div>
