@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,47 +14,70 @@ interface LoginDialogProps {
 }
 
 const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  
+  // Register form state
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerPasswordConfirm, setRegisterPasswordConfirm] = useState('');
+  const [registerFirstName, setRegisterFirstName] = useState('');
+  const [registerLastName, setRegisterLastName] = useState('');
+  const [registerPhone, setRegisterPhone] = useState('');
+  
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginWithGoogle } = useApp();
+  const [activeTab, setActiveTab] = useState('login');
+  const { login, register } = useApp();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const success = await login(email, password);
+    const success = await login(loginEmail, loginPassword);
     
     if (success) {
-      toast({
-        title: "Welcome back!",
-        description: "You have been successfully logged in.",
-      });
       if (onOpenChange) onOpenChange(false);
-      setEmail('');
-      setPassword('');
-    } else {
-      toast({
-        title: "Login failed",
-        description: "Please check your credentials and try again.",
-        variant: "destructive",
-      });
+      setLoginEmail('');
+      setLoginPassword('');
     }
     
     setIsLoading(false);
   };
 
-  const handleGoogleLogin = async () => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate passwords match
+    if (registerPassword !== registerPasswordConfirm) {
+      toast({
+        title: "Registration failed",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
-    const success = await loginWithGoogle();
+
+    const success = await register({
+      email: registerEmail,
+      password: registerPassword,
+      password_confirm: registerPasswordConfirm,
+      first_name: registerFirstName,
+      last_name: registerLastName,
+      phone_number: registerPhone || undefined,
+    });
     
     if (success) {
-      toast({
-        title: "Welcome!",
-        description: "You have been successfully logged in with Google.",
-      });
       if (onOpenChange) onOpenChange(false);
+      setRegisterEmail('');
+      setRegisterPassword('');
+      setRegisterPasswordConfirm('');
+      setRegisterFirstName('');
+      setRegisterLastName('');
+      setRegisterPhone('');
     }
     
     setIsLoading(false);
@@ -65,47 +88,35 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Sign In</DialogTitle>
+          <DialogTitle>Welcome to AgriTech</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
-          <Button 
-            onClick={handleGoogleLogin} 
-            variant="outline" 
-            className="w-full"
-            disabled={isLoading}
-          >
-            Continue with Google
-          </Button>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="login">Sign In</TabsTrigger>
+            <TabsTrigger value="register">Sign Up</TabsTrigger>
+          </TabsList>
           
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <TabsContent value="login" className="space-y-4">
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+                <Label htmlFor="login-email">Email</Label>
               <Input
-                id="email"
+                  id="login-email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
                 placeholder="Enter your email"
                 required
               />
             </div>
             <div>
-              <Label htmlFor="password">Password</Label>
+                <Label htmlFor="login-password">Password</Label>
               <Input
-                id="password"
+                  id="login-password"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
               />
@@ -113,10 +124,89 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
-            <p className="text-sm text-grey-600 text-center">
-              Demo: Use admin@agri.com for admin access, or any email/password for user
-            </p>
+            </form>
+          </TabsContent>
+          
+          <TabsContent value="register" className="space-y-4">
+            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="register-first-name">First Name</Label>
+                  <Input
+                    id="register-first-name"
+                    type="text"
+                    value={registerFirstName}
+                    onChange={(e) => setRegisterFirstName(e.target.value)}
+                    placeholder="First name"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="register-last-name">Last Name</Label>
+                  <Input
+                    id="register-last-name"
+                    type="text"
+                    value={registerLastName}
+                    onChange={(e) => setRegisterLastName(e.target.value)}
+                    placeholder="Last name"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="register-email">Email</Label>
+                <Input
+                  id="register-email"
+                  type="email"
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="register-phone">Phone Number (Optional)</Label>
+                <Input
+                  id="register-phone"
+                  type="tel"
+                  value={registerPhone}
+                  onChange={(e) => setRegisterPhone(e.target.value)}
+                  placeholder="Enter your phone number"
+                />
+              </div>
+              <div>
+                <Label htmlFor="register-password">Password</Label>
+                <Input
+                  id="register-password"
+                  type="password"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  minLength={8}
+                />
+              </div>
+              <div>
+                <Label htmlFor="register-password-confirm">Confirm Password</Label>
+                <Input
+                  id="register-password-confirm"
+                  type="password"
+                  value={registerPasswordConfirm}
+                  onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
+                  placeholder="Confirm your password"
+                  required
+                  minLength={8}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Creating account...' : 'Create Account'}
+              </Button>
           </form>
+          </TabsContent>
+        </Tabs>
+        
+        <div className="text-center text-sm text-muted-foreground">
+          <p>Connect your farm to the future of agriculture</p>
         </div>
       </DialogContent>
     </Dialog>

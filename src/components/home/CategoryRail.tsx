@@ -1,96 +1,72 @@
 
 import React from 'react';
-import { Wrench, Drill, Sprout, Droplets, SprayCanIcon, Scissors, Package, Milk, Square, Wind, Hammer, Zap, Recycle, Wheat, Cog, Factory, Zap as ZapIcon, Tractor } from 'lucide-react';
+import { Wrench, Drill, Sprout, Droplets, SprayCanIcon, Scissors, Package, Milk, Square, Wind, Hammer, Zap, Settings, Building2, Tractor, Cog } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
+import { useApp } from '@/contexts/AppContext';
 
 const CategoryRail = () => {
-  const categories = [
-    {
-      id: 1,
-      name: 'Intercultivators/Power weeders',
-      icon: Wrench,
-      description: 'Cultivation & weeding tools',
-      color: 'bg-blue-500',
-    },
-    {
-      id: 2,
-      name: 'Earth Augers',
-      icon: Drill,
-      description: 'Drilling & boring equipment',
-      color: 'bg-amber-500',
-    },
-    {
-      id: 3,
-      name: 'Seeders/planters',
-      icon: Sprout,
-      description: 'Planting & seeding machines',
-      color: 'bg-brand-primary-500',
-    },
-    {
-      id: 4,
-      name: 'Waterpumps & Engines',
-      icon: Droplets,
-      description: 'Water pumping systems',
-      color: 'bg-cyan-500',
-    },
-    {
-      id: 5,
-      name: 'Sprayers',
-      icon: SprayCanIcon,
-      description: 'Crop spraying equipment',
-      color: 'bg-purple-500',
-    },
-    {
-      id: 6,
-      name: 'Brush cutters',
-      icon: Scissors,
-      description: 'Cutting & trimming tools',
-      color: 'bg-red-500',
-    },
-    {
-      id: 7,
-      name: 'Chaff cutters',
-      icon: Package,
-      description: 'Feed preparation machines',
-      color: 'bg-orange-500',
-    },
-    {
-      id: 8,
-      name: 'Milking machines',
-      icon: Milk,
-      description: 'Dairy automation equipment',
-      color: 'bg-pink-500',
-    },
-    {
-      id: 9,
-      name: 'Cow mats',
-      icon: Square,
-      description: 'Livestock comfort products',
-      color: 'bg-green-600',
-    },
-    {
-      id: 10,
-      name: 'Foggers',
-      icon: Wind,
-      description: 'Fogging & misting systems',
-      color: 'bg-indigo-500',
-    },
-    {
-      id: 11,
-      name: 'Power tools',
-      icon: Hammer,
-      description: 'Electric & pneumatic tools',
-      color: 'bg-yellow-500',
-    },
-    {
-      id: 12,
-      name: 'Chain Saw',
-      icon: Zap,
-      description: 'Cutting & pruning saws',
-      color: 'bg-red-600',
-    },
+  const { categories = [] } = useApp();
+
+  // Icon mapping for categories - we'll use a default icon if not found
+  const categoryIcons: { [key: string]: any } = {
+    'Intercultivators/Power weeders': Wrench,
+    'Earth Augers': Drill,
+    'Seeders/planters': Sprout,
+    'Waterpumps & Engines': Droplets,
+    'Sprayers': SprayCanIcon,
+    'Brush cutters': Scissors,
+    'Chaff cutters': Package,
+    'Milking machines': Milk,
+    'Cow mats': Square,
+    'Foggers': Wind,
+    'Power tools': Hammer,
+    'Chain Saw': Zap,
+    'Agriculture Shredders': Settings,
+    'Harvesting Machines': Tractor,
+    'Threashers': Building2,
+    'Pillet making machines': Cog,
+    'Pulverizers': Hammer,
+    'Lawn/Stubble Movers': Tractor,
+  };
+
+  // Color mapping for categories
+  const categoryColors = [
+    'bg-blue-500',
+    'bg-amber-500', 
+    'bg-brand-primary-500',
+    'bg-cyan-500',
+    'bg-purple-500',
+    'bg-red-500',
+    'bg-orange-500',
+    'bg-pink-500',
+    'bg-green-600',
+    'bg-indigo-500',
+    'bg-yellow-500',
+    'bg-red-600',
+    'bg-slate-500',
+    'bg-emerald-500',
+    'bg-violet-500',
+    'bg-rose-500',
   ];
+
+  // If no categories from API, show loading or empty state
+  if (!categories || categories.length === 0) {
+    return (
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-grey-800 mb-4">
+              Shop by Category
+            </h2>
+            <p className="text-lg text-grey-600 max-w-2xl mx-auto">
+              Loading categories...
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-16">
@@ -105,25 +81,30 @@ const CategoryRail = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-          {categories.map((category) => (
-            <Link key={category.id} to={`/products?category=${encodeURIComponent(category.name)}`}>
-              <Card className="p-6 text-center hover:shadow-level-2 transition-all duration-200 animate-card-hover border-0 bg-grey-50 group">
-                <div className="space-y-4">
-                  <div className={`w-16 h-16 mx-auto rounded-16 ${category.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                    <category.icon className="w-8 h-8 text-white" />
+          {categories.slice(0, 12).map((category, index) => {
+            const IconComponent = categoryIcons[category.name] || Settings;
+            const colorClass = categoryColors[index % categoryColors.length];
+            
+            return (
+              <Link key={category.id} to={`/products?category=${encodeURIComponent(category.name)}`}>
+                <Card className="p-6 text-center hover:shadow-level-2 transition-all duration-200 animate-card-hover border-0 bg-grey-50 group">
+                  <div className="space-y-4">
+                    <div className={`w-16 h-16 mx-auto rounded-16 ${colorClass} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
+                      <IconComponent className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-grey-800 mb-1 text-sm">
+                        {category?.name || 'Unknown Category'}
+                      </h3>
+                      <p className="text-xs text-grey-600">
+                        {category?.description || 'No description available'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-grey-800 mb-1 text-sm">
-                      {category.name}
-                    </h3>
-                    <p className="text-xs text-grey-600">
-                      {category.description}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          ))}
+                </Card>
+              </Link>
+            );
+          })}
         </div>
 
         <div className="text-center mt-10">

@@ -23,7 +23,7 @@ const ProductsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 15;
   
-  const { searchQuery, products } = useApp();
+  const { searchQuery, products, categories: apiCategories, brands: apiBrands, loading, loadProducts } = useApp();
   const [searchParams] = useSearchParams();
   const searchFromUrl = searchParams.get('search') || '';
   const categoryFromUrl = searchParams.get('category') || '';
@@ -35,26 +35,8 @@ const ProductsPage = () => {
     }
   }, [categoryFromUrl]);
 
-  const categories = [
-    'Intercultivators/Power weeders',
-    'Earth Augers', 
-    'Seeders/planters',
-    'Waterpumps & Engines',
-    'Sprayers',
-    'Brush cutters',
-    'Chaff cutters',
-    'Milking machines',
-    'Cow mats',
-    'Foggers',
-    'Power tools',
-    'Chain Saw',
-    'Agriculture Shredders',
-    'Harvesting Machines',
-    'Threashers',
-    'Pillet making machines',
-    'Pulverizers',
-    'Lawn/Stubble Movers'
-  ];
+  // Extract category names for UI - ensure apiCategories is always an array
+  const categoryNames = Array.isArray(apiCategories) ? apiCategories.map(cat => cat?.name || 'Unknown') : [];
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -93,7 +75,7 @@ const ProductsPage = () => {
         filtered.sort((a, b) => b.rating - a.rating);
         break;
       case 'newest':
-        filtered.sort((a, b) => b.id - a.id);
+        filtered.sort((a, b) => b.id.localeCompare(a.id));
         break;
       default:
         // featured - keep original order
@@ -146,7 +128,7 @@ const ProductsPage = () => {
       <div>
         <h3 className="font-semibold text-grey-800 mb-4">Categories</h3>
         <div className="space-y-3 max-h-64 overflow-y-auto">
-          {categories.map((category) => (
+          {categoryNames.map((category) => (
             <div key={category} className="flex items-center space-x-2">
               <Checkbox 
                 id={category}

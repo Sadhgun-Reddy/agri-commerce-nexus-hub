@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: {
-    id: number;
+    id: string;
     name: string;
     price: number;
     originalPrice?: number;
@@ -50,7 +50,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <Card className="group overflow-hidden border-0 shadow-level-1 hover:shadow-level-2 transition-all duration-200 animate-card-hover">
       <div className="relative">
-        <Link to={`/product/${product.sku}`}>
+        <Link to={`/product/${product.id}`}>
           <img
             src={product.image}
             alt={product.name}
@@ -99,7 +99,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className="space-y-3">
           <div>
             <p className="text-sm text-grey-600 mb-1">{product.category}</p>
-            <Link to={`/product/${product.sku}`}>
+            <Link to={`/product/${product.id}`}>
               <h3 className="font-semibold text-grey-800 hover:text-brand-primary-500 transition-colors line-clamp-2">
                 {product.name}
               </h3>
