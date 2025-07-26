@@ -136,16 +136,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             )}
           </div>
 
-          {/* Add to Cart Button */}
-          <Button 
-            className="w-full" 
-            size="sm"
-            disabled={!product.inStock}
-            onClick={handleAddToCart}
-          >
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-          </Button>
+          {/* View Product Button */}
+          <Link to={`/product/${product.sku}`}>
+            <Button 
+              className="w-full" 
+              size="sm"
+              disabled={!product.inStock}
+            >
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              {product.inStock ? 'View Product' : 'Out of Stock'}
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>
