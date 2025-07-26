@@ -1,4 +1,6 @@
+// contexts/AppContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 interface CartItem {
   id: number;
@@ -26,7 +28,7 @@ interface Order {
   };
 }
 
-interface Product {
+export interface Product { // Export Product interface for use in other components
   id: number;
   name: string;
   price: number;
@@ -40,6 +42,7 @@ interface Product {
   inStock: boolean;
   badge?: string;
   brand: string;
+  // Add any other fields your API returns
 }
 
 interface User {
@@ -47,6 +50,7 @@ interface User {
   email: string;
   name: string;
   isAdmin?: boolean;
+  // Add other user properties as needed based on your API response
 }
 
 interface AppContextType {
@@ -57,33 +61,43 @@ interface AppContextType {
   removeFromCart: (id: number) => void;
   cartCount: number;
   clearCart: () => void;
-  
+
   // User state
   user: User | null;
   isLoggedIn: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  isAuthLoading: boolean;
+  login: (email: string, password: string, token?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   logout: () => void;
-  
+  refreshUser: () => Promise<void>;
+
   // Search state
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  
+
   // Orders
   orders: Order[];
   placeOrder: (shippingAddress: any) => string;
   getUserOrders: (userId: string) => Order[];
-  
-  // Admin functionality
+
+  // Admin functionality (keeping these for now, might need adjustment based on API)
   products: Product[];
   updateProduct: (product: Product) => void;
   deleteProduct: (id: number) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
   getAllOrders: () => Order[];
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
+
+  // Product fetching state
+  isProductsLoading: boolean;
+  productsError: string | null;
+  fetchProducts: () => Promise<void>; // Expose fetch function if needed elsewhere
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// API base URL - using your tunnel URL
+const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms"; // Ensure no trailing space
 
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -94,55 +108,89 @@ export const useApp = () => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    const savedCart = localStorage.getItem('cart');
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
   const [user, setUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 1,
-      name: "Honda Power Weeder GX25",
-      price: 28000,
-      originalPrice: 32000,
-      rating: 4.8,
-      reviews: 124,
-      image: "https://images.unsplash.com/photo-1581090464777-f3220bbe1b8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-      category: "Intercultivators/Power weeders",
-      sku: "HON-PW-GX25",
-      discount: 12,
-      inStock: true,
-      badge: "Best Seller",
-      brand: "Honda"
-    },
-    {
-      id: 2,
-      name: "Professional Earth Auger 52cc",
-      price: 15000,
-      originalPrice: 18000,
-      rating: 4.6,
-      reviews: 89,
-      image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-      category: "Earth Augers",
-      sku: "PRO-EA-52CC",
-      discount: 17,
-      inStock: true,
-      badge: "New Arrival",
-      brand: "Mahindra"
-    }
-  ]);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
-    }
-  }, []);
+  // Product state
+  const [products, setProducts] = useState<Product[]>([]); // Start with empty array
+  const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+
+  // Load cart from localStorage on mount (moved inside useState initializer above)
+  // useEffect for saving cart is kept below
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cartItems));
   }, [cartItems]);
+
+  // Fetch products from API
+  const fetchProducts = async () => {
+    setIsProductsLoading(true);
+    setProductsError(null);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/products`);
+      // Assuming the API returns an array of products directly
+      // Adjust the data access (e.g., response.data.products) if your API structure is different
+      setProducts(response.data);
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load products';
+      setProductsError(errorMessage);
+    } finally {
+      setIsProductsLoading(false);
+    }
+  };
+
+  // Initialize auth state and fetch products on app load
+  useEffect(() => {
+    const initializeApp = async () => {
+      // Initialize Auth
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        try {
+          await fetchUserDetails(token);
+        } catch (error) {
+          console.error('Failed to initialize auth:', error);
+          // Clear invalid token
+          localStorage.removeItem('authToken');
+        }
+      }
+      setIsAuthLoading(false);
+
+      // Fetch Products
+      await fetchProducts();
+    };
+
+    initializeApp();
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Fetch user details using token
+  const fetchUserDetails = async (token: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/auth/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const userData = response.data.user;
+      setUser({
+        id: userData.id || userData._id, // Handle both id and _id
+        email: userData.email,
+        name: userData.name || userData.username || 'User',
+        isAdmin: userData.isAdmin || userData.role === 'admin' || false
+      });
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      throw error;
+    }
+  };
 
   const addToCart = (product: any) => {
     setCartItems(prev => {
@@ -183,32 +231,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCartItems([]);
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    if (email && password) {
-      const isAdmin = email === 'admin@agri.com';
-      setUser({
-        id: isAdmin ? 'admin-1' : '1',
-        email,
-        name: email.split('@')[0],
-        isAdmin
-      });
-      return true;
+  const login = async (email: string, password: string, token?: string): Promise<boolean> => {
+    try {
+      let actualToken = token;
+
+      // If no token provided, authenticate with credentials
+      if (!actualToken) {
+        const response = await axios.post(`${API_BASE_URL}/api/auth/signin`, {
+          email,
+          password
+        });
+
+        actualToken = response.data.token; // Adjust based on your API response structure
+      }
+
+      if (actualToken) {
+        localStorage.setItem('authToken', actualToken);
+        await fetchUserDetails(actualToken);
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      console.error('Login error:', error);
+      logout(); // Clear any partial state
+
+      // Show specific error message if available
+      const errorMessage = error.response?.data?.message || 'Login failed';
+      throw new Error(errorMessage);
     }
-    return false;
   };
 
   const loginWithGoogle = async (): Promise<boolean> => {
-    setUser({
-      id: 'google-1',
-      email: 'user@gmail.com',
-      name: 'Google User',
-      isAdmin: false
-    });
-    return true;
+    // Implement Google login logic
+    // This is a placeholder - implement based on your Google auth flow
+    try {
+      // Your Google auth implementation here
+      // After successful Google login, you should get a token
+      // Then call fetchUserDetails with that token
+      setUser({
+        id: 'google-1',
+        email: 'user@gmail.com',
+        name: 'Google User',
+        isAdmin: false
+      });
+      return true;
+    } catch (error) {
+      console.error('Google login error:', error);
+      return false;
+    }
   };
 
   const logout = () => {
+    localStorage.removeItem('authToken');
     setUser(null);
+  };
+
+  const refreshUser = async () => {
+    const token = localStorage.getItem('authToken');
+    if (token && user) {
+      try {
+        await fetchUserDetails(token);
+      } catch (error) {
+        console.error('Error refreshing user:', error);
+        logout();
+      }
+    }
   };
 
   const placeOrder = (shippingAddress: any): string => {
@@ -235,14 +322,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return orders;
   };
 
-  const updateOrderStatus = (orderId: string, status: Order['status']) => {
-    setOrders(prev =>
-      prev.map(order =>
-        order.id === orderId ? { ...order, status } : order
-      )
-    );
-  };
-
+  // Note: These admin functions still use local state. If you want full backend integration,
+  // you'll need to make API calls for add/update/delete product operations as well.
   const updateProduct = (updatedProduct: Product) => {
     setProducts(prev =>
       prev.map(product =>
@@ -256,9 +337,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addProduct = (newProduct: Omit<Product, 'id'>) => {
-    const id = Math.max(...products.map(p => p.id)) + 1;
+    const id = Math.max(...products.map(p => p.id), 0) + 1; // Handle empty products array
     setProducts(prev => [...prev, { ...newProduct, id }]);
   };
+
+  const updateOrderStatus = (orderId: string, status: Order['status']) => {
+    setOrders(prev =>
+      prev.map(order =>
+        order.id === orderId ? { ...order, status } : order
+      )
+    );
+  };
+
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -272,20 +362,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       clearCart,
       user,
       isLoggedIn: !!user,
+      isAuthLoading,
       login,
       loginWithGoogle,
       logout,
+      refreshUser,
       searchQuery,
       setSearchQuery,
       orders,
       placeOrder,
       getUserOrders,
-      products,
+      products, // Now comes from API
       updateProduct,
       deleteProduct,
       addProduct,
       getAllOrders,
-      updateOrderStatus
+      updateOrderStatus,
+      isProductsLoading, // New state
+      productsError,     // New state
+      fetchProducts      // Expose fetch function
     }}>
       {children}
     </AppContext.Provider>

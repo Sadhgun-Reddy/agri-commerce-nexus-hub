@@ -11,16 +11,8 @@ import LoginDialog from '@/components/auth/LoginDialog';
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const { cartCount, isLoggedIn, searchQuery, setSearchQuery, user } = useApp();
+  const { cartCount, isLoggedIn, searchQuery, setSearchQuery, user, isAuthLoading } = useApp();
   const navigate = useNavigate();
-
-  const navigation = [
-    { name: 'Products', href: '/products' },
-    { name: 'About', href: '/about' },
-    { name: 'Contact', href: '/contact' },
-    ...(user?.isAdmin ? [{ name: 'Admin', href: '/admin' }] : []),
-    ...(isLoggedIn ? [{ name: 'My Orders', href: '/orders' }] : [])
-  ];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +29,32 @@ const Header = () => {
       setShowLoginDialog(true);
     }
   };
+
+  
+
+  // Show loading state while checking auth
+  if (isAuthLoading) {
+    return (
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto flex h-16 items-center px-4">
+          <div className="h-8 w-8 rounded-lg bg-brand-primary-500 animate-pulse"></div>
+          <div className="ml-2 h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
+          <div className="ml-auto flex items-center space-x-2">
+            <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
+            <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
+  const navigation = [
+    { name: 'Products', href: '/products' },
+    { name: 'About', href: '/about' },
+    { name: 'Contact', href: '/contact' },
+    ...(user?.isAdmin ? [{ name: 'Admin', href: '/admin' }] : []),
+    ...(isLoggedIn ? [{ name: 'My Orders', href: '/orders' }] : [])
+  ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -94,6 +112,8 @@ const Header = () => {
             <User className="h-5 w-5" />
           </Button>
 
+          
+
           {/* Cart */}
           <Link to="/cart">
             <Button variant="ghost" size="icon" className="relative">
@@ -127,6 +147,7 @@ const Header = () => {
                     {item.name}
                   </Link>
                 ))}
+                
               </nav>
             </SheetContent>
           </Sheet>

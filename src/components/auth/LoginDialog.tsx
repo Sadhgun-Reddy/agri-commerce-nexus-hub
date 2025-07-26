@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -23,6 +22,9 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }
   const { login, loginWithGoogle } = useApp();
   const { toast } = useToast();
 
+  // API base URL
+  const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -39,30 +41,64 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ open, onOpenChange, trigger }
         return;
       }
 
-      // For demo purposes, just simulate success
-      toast({
-        title: "Account created!",
-        description: "Your account has been created successfully. You can now sign in.",
-      });
-      setIsSignUp(false);
-      setUsername('');
-      setConfirmPassword('');
-    } else {
-      // Handle sign in
-      const success = await login(email, password);
-      
-      if (success) {
-        toast({
-          title: "Welcome back!",
-          description: "You have been successfully logged in.",
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: username,
+            email: email,
+            password: password
+          }),
         });
-        if (onOpenChange) onOpenChange(false);
-        setEmail('');
-        setPassword('');
-      } else {
+
+        const data = await response.json();
+
+        if (response.ok) {
+          toast({
+            title: "Account created!",
+            description: "Your account has been created successfully. You can now sign in.",
+          });
+          setIsSignUp(false);
+          setUsername('');
+          setConfirmPassword('');
+          setEmail('');
+          setPassword('');
+        } else {
+          toast({
+            title: "Sign up failed",
+            description: data.message || "Failed to create account. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.response?.data?.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+        console.error("Sign up error:", error);
+      }
+    } else {
+      // Handle sign in with integrated API call
+      try {
+        const success = await login(email, password);
+        
+        if (success) {
+          toast({
+            title: "Welcome back!",
+            description: "You have been successfully logged in.",
+          });
+          if (onOpenChange) onOpenChange(false);
+          setEmail('');
+          setPassword('');
+        }
+      } catch (error: any) {
         toast({
           title: "Login failed",
-          description: "Please check your credentials and try again.",
+          description: error.message || "Please check your credentials and try again.",
           variant: "destructive",
         });
       }

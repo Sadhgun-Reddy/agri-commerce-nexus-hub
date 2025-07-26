@@ -16,7 +16,9 @@ const ProfilePage = () => {
   const [showLoginDialog, setShowLoginDialog] = useState(!isLoggedIn);
 
   const handleLogout = () => {
-    logout();
+
+
+    localStorage.removeItem('authToken'); // Clear token from local storage
     navigate('/');
   };
 
