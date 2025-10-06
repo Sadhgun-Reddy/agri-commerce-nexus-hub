@@ -1,86 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { URLS } from '../Urls';
 
-// The following is a description of the data structures used in this file.
-//
-// interface CartItem {
-//   id: number;
-//   name: string;
-//   price: number;
-//   quantity: number;
-//   image: string;
-//   sku: string;
-//   inStock: boolean;
-// }
-//
-// interface Order {
-//   id: string;
-//   userId: string;
-//   items: CartItem[];
-//   total: number;
-//   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-//   createdAt: string;
-//   shippingAddress: {
-//     name: string;
-//     address: string;
-//     city: string;
-//     state: string;
-//     zipCode: string;
-//   };
-// }
-//
-// interface Product {
-//   id: number;
-//   name: string;
-//   price: number;
-//   originalPrice?: number;
-//   rating: number;
-//   reviews: number;
-//   image: string;
-//   category: string;
-//   sku: string;
-//   discount?: number;
-//   inStock: boolean;
-//   badge?: string;
-//   brand: string;
-// }
-//
-// interface User {
-//   id: string;
-//   email: string;
-//   name: string;
-//   isAdmin?: boolean;
-// }
-//
-// interface AppContextType {
-//   cartItems: CartItem[];
-//   addToCart: (product: any) => void;
-//   updateQuantity: (id: number, quantity: number) => void;
-//   removeFromCart: (id: number) => void;
-//   cartCount: number;
-//   clearCart: () => void;
-//   user: User | null;
-//   isLoggedIn: boolean;
-//   isAuthLoading: boolean;
-//   login: (email: string, password: string, token?: string) => Promise<boolean>;
-//   loginWithGoogle: () => Promise<boolean>;
-//   logout: () => void;
-//   refreshUser: () => Promise<void>;
-//   searchQuery: string;
-//   setSearchQuery: (query: string) => void;
-//   orders: Order[];
-//   placeOrder: (shippingAddress: any) => string;
-//   getUserOrders: (userId: string) => Order[];
-//   products: Product[];
-//   updateProduct: (product: Product) => void;
-//   deleteProduct: (id: number) => void;
-//   addProduct: (product: Omit<Product, 'id'>) => void;
-//   getAllOrders: () => Order[];
-//   updateOrderStatus: (orderId: string, status: Order['status']) => void;
-//   isProductsLoading: boolean;
-//   productsError: string | null;
-//   fetchProducts: () => Promise<void>;
-// }
 
 
 const AppContext = createContext(undefined);
@@ -160,7 +81,7 @@ export const AppProvider = ({ children }) => {
   // Fetch user details using token
   const fetchUserDetails = async (token) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/auth/profile`, {
+      const response = await axios.get(`${URLS.GetProfile}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -170,7 +91,6 @@ export const AppProvider = ({ children }) => {
         id: userData.id || userData._id, // Handle both id and _id
         email: userData.email,
         name: userData.name || userData.username || 'User',
-        isAdmin: userData.isAdmin || userData.role === 'admin' || false
       });
     } catch (error) {
       console.error('Error fetching user details:', error);

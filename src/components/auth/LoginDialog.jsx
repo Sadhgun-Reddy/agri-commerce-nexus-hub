@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
+import { URLS } from '../../Urls';
 
 const LoginDialog = ({ open, onOpenChange, trigger }) => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -13,11 +14,8 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginWithGoogle } = useApp();
+  const { loginWithGoogle, setUser, setToken } = useApp();
   const { toast } = useToast();
-
-  // API base URL
-  const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,7 +34,7 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
       }
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+        const response = await fetch(`${URLS.UserSignUp}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -53,13 +51,11 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         if (response.ok) {
           toast({
             title: "Account created!",
-            description: "Your account has been created successfully. You can now sign in.",
+            description: "Your account has been created successfully. Please sign in now.",
           });
+          // Switch to sign in mode and clear form
           setIsSignUp(false);
-          setUsername('');
-          setConfirmPassword('');
-          setEmail('');
-          setPassword('');
+          resetForm();
         } else {
           toast({
             title: "Sign up failed",
@@ -70,31 +66,68 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
       } catch (error) {
         toast({
           title: "Error",
-          description: error.response?.data?.message || "Something went wrong. Please try again.",
+          description: "Something went wrong. Please try again.",
           variant: "destructive",
         });
         console.error("Sign up error:", error);
       }
     } else {
-      // Handle sign in with integrated API call
+      // Handle sign in - Direct API integration
       try {
-        const success = await login(email, password);
-        
-        if (success) {
+        const response = await fetch(`${URLS.UserLogin}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Store token in localStorage for persistence
+          localStorage.setItem('authToken', data.token);
+          
+          // Set user data in context/state
+          if (setUser) {
+            setUser(data.user);
+          }
+          
+          // Set token in context if available
+          if (setToken) {
+            setToken(data.token);
+          }
+
+          // Set up axios default headers for future requests
+          if (window.axios) {
+            window.axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+          }
+
           toast({
             title: "Welcome back!",
-            description: "You have been successfully logged in.",
+            description: `Hello ${data.user.name}, you have been successfully logged in.`,
           });
+
+          // Close dialog and reset form
           if (onOpenChange) onOpenChange(false);
-          setEmail('');
-          setPassword('');
+          resetForm();
+        } else {
+          toast({
+            title: "Login failed",
+            description: data.message || "Invalid email or password. Please try again.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         toast({
-          title: "Login failed",
-          description: error.message || "Please check your credentials and try again.",
+          title: "Connection Error",
+          description: "Unable to connect to server. Please check your internet connection and try again.",
           variant: "destructive",
         });
+        console.error("Sign in error:", error);
       }
     }
     
@@ -115,14 +148,22 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-    const success = await loginWithGoogle();
-    
-    if (success) {
+    try {
+      const success = await loginWithGoogle();
+      
+      if (success) {
+        toast({
+          title: "Welcome!",
+          description: "You have been successfully logged in with Google.",
+        });
+        if (onOpenChange) onOpenChange(false);
+      }
+    } catch (error) {
       toast({
-        title: "Welcome!",
-        description: "You have been successfully logged in with Google.",
+        title: "Google Login Error",
+        description: "Failed to login with Google. Please try again.",
+        variant: "destructive",
       });
-      if (onOpenChange) onOpenChange(false);
     }
     
     setIsLoading(false);
