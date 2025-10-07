@@ -8,7 +8,7 @@ import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 
 const ProductCard = ({ product }) => {
-  const { addToCart } = useApp();
+  const { addToCart, toggleWishlist, isInWishlist } = useApp();
   const { toast } = useToast();
 
   const formatPrice = (price) => {
@@ -25,6 +25,7 @@ const ProductCard = ({ product }) => {
       toast({
         title: "Added to cart!",
         description: `${product.name} has been added to your cart.`,
+        variant: 'success',
       });
     }
   };
@@ -33,21 +34,22 @@ const ProductCard = ({ product }) => {
     <Card className="group overflow-hidden border-0 shadow-level-1 hover:shadow-level-2 transition-all duration-200 animate-card-hover">
       <div className="relative">
         <Link to={`/product/${product.sku}`}>
-          <img
-            src={product.image}
-            alt={product.name}
+         <img
+            src={product.images?.[0] || 'https://via.placeholder.com/150'} // first image or placeholder
+            alt={product.name || 'Product'}
             className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
           />
         </Link>
         
         {/* Badges */}
-        {product.badge && (
-          <div className="absolute top-3 left-3">
-            <Badge variant="secondary" className="bg-brand-primary-500 text-white">
-              {product.badge}
-            </Badge>
-          </div>
-        )}
+     {product.badges?.map((badge, idx) => (
+      <div key={idx} className="absolute top-3 left-3">
+        <Badge variant="secondary" className="bg-brand-primary-500 text-white">
+          {badge}
+        </Badge>
+      </div>
+    ))}
+
         
         {product.discount && product.discount > 0 && (
           <div className="absolute top-3 right-3">
@@ -59,8 +61,17 @@ const ProductCard = ({ product }) => {
 
         {/* Quick Actions */}
         <div className="absolute top-3 right-3 space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button size="icon" variant="secondary" className="w-8 h-8 bg-white/90 hover:bg-white">
-            <Heart className="w-4 h-4" />
+          <Button
+            size="icon"
+            variant="secondary"
+            className="w-8 h-8 bg-white/90 hover:bg-white"
+            onClick={() => toggleWishlist(product)}
+            aria-label={isInWishlist(product.sku || product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+          >
+            <Heart
+              className={`w-4 h-4 ${isInWishlist(product.sku || product.id) ? 'text-red-500' : ''}`}
+              {...(isInWishlist(product.sku || product.id) ? { fill: 'currentColor' } : {})}
+            />
           </Button>
           <Button size="icon" variant="secondary" className="w-8 h-8 bg-white/90 hover:bg-white">
             <Eye className="w-4 h-4" />
@@ -80,7 +91,9 @@ const ProductCard = ({ product }) => {
       <CardContent className="p-4">
         <div className="space-y-3">
           <div>
-            <p className="text-sm text-grey-600 mb-1">{product.category}</p>
+           <p className="text-sm text-grey-600 mb-1">
+              {product.categories?.join(', ') || 'Uncategorized'}
+            </p>
             <Link to={`/product/${product.sku}`}>
               <h3 className="font-semibold text-grey-800 hover:text-brand-primary-500 transition-colors line-clamp-2">
                 {product.name}
@@ -103,7 +116,7 @@ const ProductCard = ({ product }) => {
               ))}
             </div>
             <span className="text-sm font-medium">{product.rating}</span>
-            <span className="text-sm text-grey-600">({product.reviews})</span>
+            <span className="text-sm text-grey-600">({product.reviewsCount})</span>
           </div>
 
           {/* Price */}
@@ -119,7 +132,7 @@ const ProductCard = ({ product }) => {
           </div>
 
           {/* View Product Button */}
-          <Link to={`/product/${product.sku}`}>
+          <Link to={`/product/${product.sku || product._id}`}>
             <Button 
               className="w-full" 
               size="sm"

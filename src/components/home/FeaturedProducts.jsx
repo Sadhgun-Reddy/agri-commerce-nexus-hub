@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Star, ShoppingCart, Heart, Eye } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,23 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
+import axios from 'axios';
+import { URLS } from '@/Urls.jsx';
+
+const normalizeImageUrl = (src) => {
+  if (!src) return '/placeholder.svg';
+  if (/^https?:\/\//i.test(src)) return src;
+  try {
+    const base = URLS.Products.split('/api/')[0].replace(/\/$/, '');
+    const path = src.toString().replace(/^\//, '');
+    return `${base}/${path}`;
+  } catch {
+    return src;
+  }
+};
 
 const FeaturedProducts = () => {
-  const { addToCart } = useApp();
+  const { addToCart, toggleWishlist, isInWishlist } = useApp();
   const { toast } = useToast();
 
   const formatPrice = (price) => {
@@ -134,12 +148,76 @@ const FeaturedProducts = () => {
     }
   ];
 
-  const handleAddToCart = () => {
-    if (product.inStock) {
+  const [bestSellers, setBestSellers] = useState([]);
+  const [newArrivals, setNewArrivals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const normalize = (s) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
+    const getKey = (p) => p?.sku || p?.id || `${p?.name}`;
+    const hasBadge = (p, targets) => {
+      const list = Array.isArray(p?.badges) ? p.badges : (p?.badge ? [p.badge] : []);
+      const normList = list.map((b) => normalize(b));
+      return targets.some((t) => normList.includes(normalize(t)));
+    };
+    const fetchFeatured = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await axios.get(URLS.Products);
+        if (!isMounted) return;
+        const all = Array.isArray(res.data) ? res.data : (res.data?.products || []);
+        const rawBest = all.filter((p) => hasBadge(p, ['best seller', 'bestseller']));
+        const rawNew = all.filter((p) => hasBadge(p, ['new', 'new arrival', 'newarrival']));
+
+        // De-duplicate within each list
+        const seenBest = new Set();
+        const best = [];
+        for (const p of rawBest) {
+          const k = getKey(p);
+          if (!seenBest.has(k)) {
+            seenBest.add(k);
+            best.push(p);
+          }
+          if (best.length >= 8) break;
+        }
+
+        // Exclude items already in best from new arrivals
+        const seenNew = new Set(seenBest);
+        const newest = [];
+        for (const p of rawNew) {
+          const k = getKey(p);
+          if (!seenNew.has(k)) {
+            seenNew.add(k);
+            newest.push(p);
+          }
+          if (newest.length >= 8) break;
+        }
+
+        setBestSellers(best);
+        setNewArrivals(newest);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err.response?.data?.message || err.message || 'Failed to load featured products');
+        setBestSellers([]);
+        setNewArrivals([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchFeatured();
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleAddToCart = (product) => {
+    if (product?.inStock) {
       addToCart(product);
       toast({
         title: "Added to cart!",
         description: `${product.name} has been added to your cart.`,
+        variant: 'success',
       });
     }
   };
@@ -156,13 +234,18 @@ const FeaturedProducts = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.slice(0, 8).map((product) => (
+        {/* Best Sellers */}
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-2xl font-semibold text-grey-800">Best Sellers</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {bestSellers.map((product) => (
             <Card key={product.id} className="group overflow-hidden border-0 shadow-level-1 hover:shadow-level-2 transition-all duration-200">
               <div className="relative">
                 <Link to={`/product/${product.sku}`}>
                   <img
-                    src={product.image}
+                    src={normalizeImageUrl((product.images && product.images[0]) || product.image)}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                     alt={product.name}
                     className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
                   />
@@ -171,7 +254,7 @@ const FeaturedProducts = () => {
                 {/* Badges */}
                 <div className="absolute top-3 left-3">
                   <Badge variant="secondary" className="bg-brand-primary-500 text-white">
-                    {product.badge}
+                    {product.badge || 'Best Seller'}
                   </Badge>
                 </div>
                 
@@ -184,10 +267,19 @@ const FeaturedProducts = () => {
                 )}
 
                 {/* Quick Actions */}
-                <div className="absolute top-3 right-3 space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="secondary" className="w-8 h-8">
-                    <Heart className="w-4 h-4" />
-                  </Button>
+                 <div className="absolute top-3 right-3 space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <Button
+                     size="icon"
+                     variant="secondary"
+                     className="w-8 h-8 bg-white/90 hover:bg-white"
+                     onClick={() => toggleWishlist(product)}
+                     aria-label={isInWishlist(product.sku || product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                   >
+                     <Heart
+                       className={`w-4 h-4 ${isInWishlist(product.sku || product.id) ? 'text-red-500' : ''}`}
+                       {...(isInWishlist(product.sku || product.id) ? { fill: 'currentColor' } : {})}
+                     />
+                   </Button>
                 </div>
               </div>
 
@@ -216,8 +308,8 @@ const FeaturedProducts = () => {
                         />
                       ))}
                     </div>
-                    <span className="text-sm font-medium">{product.rating}</span>
-                    <span className="text-sm text-grey-600">({product.reviews})</span>
+                    <span className="text-sm font-medium">{product.rating || 4.5}</span>
+                    <span className="text-sm text-grey-600">({product.reviews || 0})</span>
                   </div>
 
                   {/* Price */}
@@ -233,7 +325,82 @@ const FeaturedProducts = () => {
                   </div>
 
                   {/* Add to Cart Button */}
-                  <Button className="w-full" size="sm">
+                  <Button className="w-full" size="sm" onClick={() => handleAddToCart(product)}>
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Add to Cart
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* New Arrivals */}
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-2xl font-semibold text-grey-800">New Arrivals</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {newArrivals.map((product) => (
+            <Card key={product.id} className="group overflow-hidden border-0 shadow-level-1 hover:shadow-level-2 transition-all duration-200">
+              <div className="relative">
+                <Link to={`/product/${product.sku}`}>
+                  <img
+                    src={normalizeImageUrl((product.images && product.images[0]) || product.image)}
+                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
+                    alt={product.name}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
+                  />
+                </Link>
+                <div className="absolute top-3 left-3">
+                  <Badge variant="secondary" className="bg-brand-primary-500 text-white">
+                    {product.badge || 'New Arrival'}
+                  </Badge>
+                </div>
+                {product.discount > 0 && (
+                  <div className="absolute top-3 right-3">
+                    <Badge variant="destructive" className="bg-accent-orange-500">
+                      {product.discount}% OFF
+                    </Badge>
+                  </div>
+                )}
+              </div>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-grey-600 mb-1">{product.category}</p>
+                    <Link to={`/product/${product.sku}`}>
+                      <h3 className="font-semibold text-grey-800 hover:text-brand-primary-500 transition-colors line-clamp-2">
+                        {product.name}
+                      </h3>
+                    </Link>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-4 h-4 ${
+                            i < Math.floor(product.rating || 4)
+                              ? 'text-yellow-400 fill-current'
+                              : 'text-grey-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-sm font-medium">{product.rating || 4.5}</span>
+                    <span className="text-sm text-grey-600">({product.reviews || 0})</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg font-bold text-grey-800">
+                      {formatPrice(product.price)}
+                    </span>
+                    {product.originalPrice > product.price && (
+                      <span className="text-sm text-grey-500 line-through">
+                        {formatPrice(product.originalPrice)}
+                      </span>
+                    )}
+                  </div>
+                  <Button className="w-full" size="sm" onClick={() => handleAddToCart(product)}>
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     Add to Cart
                   </Button>

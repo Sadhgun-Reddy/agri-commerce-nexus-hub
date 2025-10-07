@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +15,9 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { loginWithGoogle, setUser, setToken } = useApp();
+  const { loginWithGoogle, login } = useApp();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,6 +54,7 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
           toast({
             title: "Account created!",
             description: "Your account has been created successfully. Please sign in now.",
+            variant: "success",
           });
           // Switch to sign in mode and clear form
           setIsSignUp(false);
@@ -72,62 +75,32 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         console.error("Sign up error:", error);
       }
     } else {
-      // Handle sign in - Direct API integration
+      // Handle sign in via centralized app context to update user immediately
       try {
-        const response = await fetch(`${URLS.UserLogin}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: email,
-            password: password
-          }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          // Store token in localStorage for persistence
-          localStorage.setItem('authToken', data.token);
-          
-          // Set user data in context/state
-          if (setUser) {
-            setUser(data.user);
-          }
-          
-          // Set token in context if available
-          if (setToken) {
-            setToken(data.token);
-          }
-
-          // Set up axios default headers for future requests
-          if (window.axios) {
-            window.axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-          }
-
+        const success = await login(email, password);
+        if (success) {
           toast({
             title: "Welcome back!",
-            description: `Hello ${data.user.name}, you have been successfully logged in.`,
+            description: "You have been successfully logged in.",
+            variant: "success",
           });
-
-          // Close dialog and reset form
           if (onOpenChange) onOpenChange(false);
           resetForm();
-        } else {
-          toast({
-            title: "Login failed",
-            description: data.message || "Invalid email or password. Please try again.",
-            variant: "destructive",
-          });
+          // Redirect to wishlist if login was triggered by wishlist intent; fallback to profile
+          const pending = localStorage.getItem('pendingRedirectToWishlist');
+          if (pending) {
+            localStorage.removeItem('pendingRedirectToWishlist');
+            navigate('/wishlist');
+          } else {
+            navigate('/profile');
+          }
         }
       } catch (error) {
         toast({
-          title: "Connection Error",
-          description: "Unable to connect to server. Please check your internet connection and try again.",
+          title: "Login failed",
+          description: error.message || "Invalid email or password. Please try again.",
           variant: "destructive",
         });
-        console.error("Sign in error:", error);
       }
     }
     

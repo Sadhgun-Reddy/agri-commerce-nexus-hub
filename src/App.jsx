@@ -14,6 +14,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import OrdersPage from "./pages/OrdersPage";
+import WishlistPage from "./pages/WishlistPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,7 +24,7 @@ const App = () => (
     <TooltipProvider>
       <AppProvider>
         <Toaster />
-        <Sonner />
+        <Sonner position="top-right" richColors closeButton />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/account" element={<ProfilePage />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/wishlist" element={<WishlistPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

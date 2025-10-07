@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { URLS } from '../Urls';
+import { toast } from '@/hooks/use-toast.js';
 
 
 
 const AppContext = createContext(undefined);
 
 // API base URL - using your tunnel URL
-const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms"; // Ensure no trailing space
+// const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms"; // Ensure no trailing space
+const API_BASE_URL = "http://127.0.0.1:5000";
 
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -22,10 +24,13 @@ export const AppProvider = ({ children }) => {
     const savedCart = localStorage.getItem('cart');
     return savedCart ? JSON.parse(savedCart) : [];
   });
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [user, setUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [orders, setOrders] = useState([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const [pendingWishlistProduct, setPendingWishlistProduct] = useState(null);
 
   // Product state
   const [products, setProducts] = useState([]); // Start with empty array
@@ -36,6 +41,13 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cartItems));
   }, [cartItems]);
+  const getWishlistStorageKey = (uid) => `wishlist:${uid}`;
+
+  useEffect(() => {
+    if (user?.id) {
+      localStorage.setItem(getWishlistStorageKey(user.id), JSON.stringify(wishlistItems));
+    }
+  }, [wishlistItems, user]);
 
   // Fetch products from API
   const fetchProducts = async () => {
@@ -62,7 +74,10 @@ export const AppProvider = ({ children }) => {
       const token = localStorage.getItem('authToken');
       if (token) {
         try {
-          await fetchUserDetails(token);
+          const fetchedUser = await fetchUserDetails(token);
+          if (fetchedUser?.id) {
+            await loadWishlistFromServer(token, fetchedUser.id);
+          }
         } catch (error) {
           console.error('Failed to initialize auth:', error);
           // Clear invalid token
@@ -87,14 +102,54 @@ export const AppProvider = ({ children }) => {
         }
       });
       const userData = response.data.user;
-      setUser({
+      const normalizedUser = {
         id: userData.id || userData._id, // Handle both id and _id
         email: userData.email,
         name: userData.name || userData.username || 'User',
-      });
+      };
+      setUser(normalizedUser);
+      return normalizedUser;
     } catch (error) {
       console.error('Error fetching user details:', error);
       throw error;
+    }
+  };
+
+  const loadWishlistFromServer = async (token, userId) => {
+    try {
+      const res = await axios.get(URLS.WishlistGet, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = res.data;
+      const products = Array.isArray(data?.products)
+        ? data.products
+        : (Array.isArray(data?.wishlist?.products) ? data.wishlist.products : []);
+
+      if (!products.length || typeof products[0] === 'string') {
+        const local = localStorage.getItem(getWishlistStorageKey(userId));
+        setWishlistItems(local ? JSON.parse(local) : []);
+        return;
+      }
+
+      const mapped = products.map((product) => ({
+        id: product.id || product._id,
+        sku: product.sku,
+        name: product.name,
+        price: product.price,
+        image: (product.images && product.images[0]) || product.image,
+        images: product.images,
+        category: product.category || (Array.isArray(product.categories) ? product.categories.join(', ') : undefined),
+        categories: product.categories,
+        rating: product.rating,
+        reviewsCount: product.reviewsCount || product.reviews,
+        originalPrice: product.originalPrice,
+        discount: product.discount,
+        inStock: product.inStock,
+      }));
+      setWishlistItems(mapped);
+    } catch (error) {
+      const local = userId ? localStorage.getItem(getWishlistStorageKey(userId)) : null;
+      setWishlistItems(local ? JSON.parse(local) : []);
     }
   };
 
@@ -113,11 +168,94 @@ export const AppProvider = ({ children }) => {
         name: product.name,
         price: product.price,
         quantity: 1,
-        image: product.image,
+        image: (product.images && product.images[0]) || product.image,
+        images: product.images,
         sku: product.sku,
         inStock: product.inStock
       }];
     });
+  };
+
+  const isInWishlist = (idOrSku) => {
+    return wishlistItems.some(item => item.id === idOrSku || item.sku === idOrSku);
+  };
+
+  const addToWishlist = (product) => {
+    setWishlistItems(prev => {
+      const key = product.sku || product.id || product._id;
+      if (prev.some(p => p.id === key || p.sku === key)) return prev;
+      return [...prev, {
+        id: product._id || product.id,
+        sku: product.sku,
+        name: product.name,
+        price: product.price,
+        image: (product.images && product.images[0]) || product.image,
+        images: product.images,
+        category: product.category || (Array.isArray(product.categories) ? product.categories.join(', ') : undefined),
+        categories: Array.isArray(product.categories) ? product.categories : (product.category ? [product.category] : []),
+        rating: product.rating,
+        reviewsCount: product.reviewsCount || product.reviews,
+        originalPrice: product.originalPrice,
+        discount: product.discount,
+        inStock: product.inStock,
+      }];
+    });
+  };
+
+  const removeFromWishlist = (idOrSku) => {
+    setWishlistItems(prev => prev.filter(item => item.id !== idOrSku && item.sku !== idOrSku));
+  };
+
+  const toggleWishlist = async (product) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      // Defer the wishlist add until after login
+      setPendingWishlistProduct(product);
+      localStorage.setItem('pendingRedirectToWishlist', '1');
+      openLoginDialog();
+      return;
+    }
+    try {
+      const productId = product._id || product.id;
+      const key = product.sku || product.id || product._id;
+      if (!productId) {
+        toast({ title: 'Missing product id', description: 'Unable to add this product to wishlist.', variant: 'destructive' });
+        return;
+      }
+      if (isInWishlist(key)) {
+        // Optional: call backend remove if available
+        try {
+          await axios.post(`${URLS.WishlistRemove}/${productId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+        } catch {
+          // ignore backend remove error, proceed to local update
+        }
+        removeFromWishlist(key);
+        toast({ title: 'Removed from wishlist', variant: 'destructive' });
+      } else {
+        try {
+          await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+          addToWishlist(product);
+          toast({ title: 'Added to wishlist', variant: 'success' });
+        } catch (err) {
+          const statusAdd = err.response?.status;
+          const msg = err.response?.data?.message?.toString().toLowerCase();
+          if (statusAdd === 400 && msg && msg.includes('already')) {
+            // Backend says it already exists → ensure local state reflects it
+            addToWishlist(product);
+            toast({ title: 'Already in wishlist', description: 'This item is already saved.', variant: 'success' });
+          } else {
+            throw err;
+          }
+        }
+      }
+    } catch (error) {
+      const status = error.response?.status;
+      if (status === 401) {
+        toast({ title: 'Sign in required', description: 'Please sign in to use wishlist.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Wishlist error', description: error.response?.data?.message || error.message, variant: 'destructive' });
+      }
+    }
   };
 
   const updateQuantity = (id, quantity) => {
@@ -137,6 +275,9 @@ export const AppProvider = ({ children }) => {
     setCartItems([]);
   };
 
+  const openLoginDialog = () => setIsLoginDialogOpen(true);
+  const closeLoginDialog = () => setIsLoginDialogOpen(false);
+
   const login = async (email, password, token) => {
     try {
       let actualToken = token;
@@ -147,13 +288,28 @@ export const AppProvider = ({ children }) => {
           email,
           password
         });
+        console.log("Login API response:", response.data);
 
         actualToken = response.data.token; // Adjust based on your API response structure
       }
 
       if (actualToken) {
         localStorage.setItem('authToken', actualToken);
-        await fetchUserDetails(actualToken);
+        const fetchedUser = await fetchUserDetails(actualToken);
+        if (fetchedUser?.id) {
+          await loadWishlistFromServer(actualToken, fetchedUser.id);
+        }
+        // If login was triggered from a pending wishlist add, complete it and go to wishlist
+        if (pendingWishlistProduct) {
+          try {
+            const productId = pendingWishlistProduct._id || pendingWishlistProduct.id;
+            if (productId) {
+              await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, { headers: { Authorization: `Bearer ${actualToken}` } });
+              addToWishlist(pendingWishlistProduct);
+            }
+          } catch {}
+          setPendingWishlistProduct(null);
+        }
         return true;
       }
       return false;
@@ -190,6 +346,12 @@ export const AppProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('authToken');
     setUser(null);
+    setWishlistItems([]);
+    toast({
+      title: 'Logged out',
+      description: 'You have been logged out.',
+      variant: 'destructive',
+    });
   };
 
   const refreshUser = async () => {
@@ -266,6 +428,14 @@ export const AppProvider = ({ children }) => {
       removeFromCart,
       cartCount,
       clearCart,
+      isLoginDialogOpen,
+      openLoginDialog,
+      closeLoginDialog,
+      wishlistItems,
+      isInWishlist,
+      addToWishlist,
+      removeFromWishlist,
+      toggleWishlist,
       user,
       isLoggedIn: !!user,
       isAuthLoading,

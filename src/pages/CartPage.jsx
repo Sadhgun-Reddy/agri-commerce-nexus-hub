@@ -58,7 +58,8 @@ const CartPage = () => {
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-4">
                     <img
-                      src={item.image}
+                      src={item.image || (item.images && item.images[0]) || '/placeholder.svg'}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder.svg'; }}
                       alt={item.name}
                       className="w-20 h-20 object-cover rounded-lg"
                     />

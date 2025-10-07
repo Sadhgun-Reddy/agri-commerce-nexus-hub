@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +10,7 @@ import LoginDialog from '@/components/auth/LoginDialog.jsx';
 
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const { cartCount, isLoggedIn, searchQuery, setSearchQuery, user, isAuthLoading } = useApp();
+  const { cartCount, wishlistItems, isLoggedIn, searchQuery, setSearchQuery, user, isAuthLoading, isLoginDialogOpen, openLoginDialog, closeLoginDialog } = useApp();
   const navigate = useNavigate();
 
   const handleSearch = (e) => {
@@ -26,7 +25,7 @@ const Header = () => {
     if (isLoggedIn) {
       navigate('/profile');
     } else {
-      setShowLoginDialog(true);
+      openLoginDialog();
     }
   };
 
@@ -114,6 +113,21 @@ const Header = () => {
 
           
 
+          {/* Wishlist */}
+          <Link to="/wishlist">
+            <Button variant="ghost" size="icon" className="relative">
+              <Heart className="h-5 w-5" />
+              {wishlistItems?.length > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                >
+                  {wishlistItems.length}
+                </Badge>
+              )}
+            </Button>
+          </Link>
+
           {/* Cart */}
           <Link to="/cart">
             <Button variant="ghost" size="icon" className="relative">
@@ -170,8 +184,8 @@ const Header = () => {
       )}
 
       <LoginDialog 
-        open={showLoginDialog} 
-        onOpenChange={setShowLoginDialog}
+        open={isLoginDialogOpen} 
+        onOpenChange={(v) => v ? openLoginDialog() : closeLoginDialog()}
       />
     </header>
   );

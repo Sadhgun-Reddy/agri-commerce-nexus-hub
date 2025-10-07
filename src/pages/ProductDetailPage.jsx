@@ -13,12 +13,13 @@ import { useToast } from '@/hooks/use-toast.js';
 const ProductDetailPage = () => {
   const { sku } = useParams();
   const navigate = useNavigate();
-  const { products, cartItems, addToCart, updateQuantity, removeFromCart } = useApp();
+  const { products, cartItems, addToCart, updateQuantity, removeFromCart, toggleWishlist, isInWishlist } = useApp();
   const { toast } = useToast();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  const product = products.find(p => p.sku === sku);
-  const cartItem = cartItems.find(item => item.id === product?.id);
+  const product = products.find(p => p.sku === sku || p._id === sku);
+  const wishlistKey = product ? (product.sku || product._id || product.id) : null;
+  const cartItem = cartItems.find(item => item.id === product?._id);
   const quantity = cartItem?.quantity || 0;
 
   useEffect(() => {
@@ -27,9 +28,7 @@ const ProductDetailPage = () => {
     }
   }, [product, navigate]);
 
-  if (!product) {
-    return null;
-  }
+  if (!product) return null;
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', {
@@ -44,49 +43,74 @@ const ProductDetailPage = () => {
       addToCart(product);
       toast({
         title: "Added to cart!",
-        description: `${product.name} has been added to your cart.`,
+        description: `${product.name || 'Product'} has been added to your cart.`,
+        variant: 'success',
       });
     }
   };
 
   const handleUpdateQuantity = (newQuantity) => {
     if (newQuantity <= 0) {
-      removeFromCart(product.id);
+      removeFromCart(product._id);
       toast({
         title: "Removed from cart",
-        description: `${product.name} has been removed from your cart.`,
+        description: `${product.name || 'Product'} has been removed from your cart.`,
       });
     } else {
-      updateQuantity(product.id, newQuantity);
+      updateQuantity(product._id, newQuantity);
     }
   };
 
-  // Mock additional images for carousel
-  const productImages = [
-    product.image,
-    product.image, // In a real app, these would be different images
-    product.image,
-    product.image
-  ];
+  const handleToggleWishlist = () => {
+    if (!product) return;
+    toggleWishlist(product);
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: product.name || 'Product',
+      text: `Check out this product: ${product.name || ''}`.trim(),
+      url,
+    };
+    try {
+      if (navigator.share && typeof navigator.share === 'function') {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast({ title: 'Link copied', description: 'Product link copied to clipboard.', variant: 'success' });
+      }
+    } catch (err) {
+      toast({ title: 'Share failed', description: err.message || 'Unable to share.', variant: 'destructive' });
+    }
+  };
+
+  // Product images fallback
+  const productImages = product.images?.length
+    ? product.images
+    : [product.image || 'https://via.placeholder.com/500'];
+
+  const categoryName = product.category || 'General';
+  const reviewsCount = product.reviews || 0;
+  const badge = product.badge || product.badges?.[0] || null;
 
   const specifications = [
-    { label: 'SKU', value: product.sku },
-    { label: 'Category', value: product.category },
+    { label: 'SKU', value: product.sku || product._id },
+    { label: 'Category', value: categoryName },
     { label: 'Availability', value: product.inStock ? 'In Stock' : 'Out of Stock' },
-    { label: 'Brand', value: 'AgriPro' },
-    { label: 'Warranty', value: '2 Years' },
-    { label: 'Model', value: product.sku.toUpperCase() }
+    { label: 'Brand', value: product.brand || 'AgriPro' },
+    { label: 'Warranty', value: product.warranty || '2 Years' },
+    { label: 'Model', value: (product.sku || product._id).toUpperCase() }
   ];
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
           {/* Back Button */}
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate(-1)}
             className="mb-6 hover:bg-grey-100"
           >
@@ -104,7 +128,7 @@ const ProductDetailPage = () => {
                       <CarouselItem key={index}>
                         <img
                           src={image}
-                          alt={`${product.name} - Image ${index + 1}`}
+                          alt={`${product.name || 'Product'} - Image ${index + 1}`}
                           className="w-full h-[500px] object-cover rounded-lg"
                         />
                       </CarouselItem>
@@ -115,15 +139,15 @@ const ProductDetailPage = () => {
                 </Carousel>
 
                 {/* Badges */}
-                {product.badge && (
+                {badge && (
                   <div className="absolute top-4 left-4">
                     <Badge variant="secondary" className="bg-brand-primary-500 text-white">
-                      {product.badge}
+                      {badge}
                     </Badge>
                   </div>
                 )}
-                
-                {product.discount && product.discount > 0 && (
+
+                {product.discount > 0 && (
                   <div className="absolute top-4 right-4">
                     <Badge variant="destructive" className="bg-accent-orange-500">
                       {product.discount}% OFF
@@ -144,7 +168,7 @@ const ProductDetailPage = () => {
                   >
                     <img
                       src={image}
-                      alt={`${product.name} thumbnail ${index + 1}`}
+                      alt={`${product.name || 'Product'} thumbnail ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
                   </button>
@@ -155,9 +179,9 @@ const ProductDetailPage = () => {
             {/* Product Details */}
             <div className="space-y-6">
               <div>
-                <p className="text-sm text-grey-600 mb-2">{product.category}</p>
-                <h1 className="text-3xl font-bold text-grey-800 mb-4">{product.name}</h1>
-                
+                <p className="text-sm text-grey-600 mb-2">{categoryName}</p>
+                <h1 className="text-3xl font-bold text-grey-800 mb-4">{product.name || 'Product'}</h1>
+
                 {/* Rating */}
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="flex items-center">
@@ -165,28 +189,28 @@ const ProductDetailPage = () => {
                       <Star
                         key={i}
                         className={`w-5 h-5 ${
-                          i < Math.floor(product.rating)
+                          i < Math.floor(product.rating || 0)
                             ? 'text-yellow-400 fill-current'
                             : 'text-grey-300'
                         }`}
                       />
                     ))}
                   </div>
-                  <span className="font-medium">{product.rating}</span>
-                  <span className="text-grey-600">({product.reviews} reviews)</span>
+                  <span className="font-medium">{product.rating || 0}</span>
+                  <span className="text-grey-600">({reviewsCount} reviews)</span>
                 </div>
 
                 {/* Price */}
                 <div className="flex items-center space-x-3 mb-6">
                   <span className="text-3xl font-bold text-grey-800">
-                    {formatPrice(product.price)}
+                    {formatPrice(product.price || 0)}
                   </span>
-                  {product.originalPrice && product.originalPrice > product.price && (
+                  {product.originalPrice && product.originalPrice > (product.price || 0) && (
                     <span className="text-xl text-grey-500 line-through">
                       {formatPrice(product.originalPrice)}
                     </span>
                   )}
-                  {product.discount && product.discount > 0 && (
+                  {product.discount > 0 && (
                     <Badge variant="destructive" className="bg-green-500">
                       Save {product.discount}%
                     </Badge>
@@ -212,8 +236,8 @@ const ProductDetailPage = () => {
               {/* Add to Cart Section */}
               <div className="space-y-4">
                 {quantity === 0 ? (
-                  <Button 
-                    className="w-full h-12 text-lg" 
+                  <Button
+                    className="w-full h-12 text-lg"
                     size="lg"
                     disabled={!product.inStock}
                     onClick={handleAddToCart}
@@ -245,18 +269,18 @@ const ProductDetailPage = () => {
                       </Button>
                     </div>
                     <span className="text-grey-600">
-                      Total: {formatPrice(product.price * quantity)}
+                      Total: {formatPrice((product.price || 0) * quantity)}
                     </span>
                   </div>
                 )}
 
                 {/* Action Buttons */}
                 <div className="flex space-x-3">
-                  <Button variant="outline" size="lg" className="flex-1">
-                    <Heart className="w-5 h-5 mr-2" />
-                    Add to Wishlist
+                  <Button variant="outline" size="lg" className="flex-1" onClick={handleToggleWishlist}>
+                    <Heart className={`w-5 h-5 mr-2 ${wishlistKey && isInWishlist(wishlistKey) ? 'text-red-500' : ''}`} {...(wishlistKey && isInWishlist(wishlistKey) ? { fill: 'currentColor' } : {})} />
+                    {wishlistKey && isInWishlist(wishlistKey) ? 'Remove from Wishlist' : 'Add to Wishlist'}
                   </Button>
-                  <Button variant="outline" size="lg" className="flex-1">
+                  <Button variant="outline" size="lg" className="flex-1" onClick={handleShare}>
                     <Share2 className="w-5 h-5 mr-2" />
                     Share
                   </Button>
@@ -287,12 +311,12 @@ const ProductDetailPage = () => {
                 <h3 className="text-2xl font-semibold text-grey-800 mb-4">Product Description</h3>
                 <div className="text-grey-600 leading-relaxed space-y-4">
                   <p>
-                    This high-quality {product.category.toLowerCase()} is designed for professional agricultural use. 
-                    Built with durable materials and precision engineering, it offers reliable performance for all your farming needs.
+                    This high-quality {categoryName.toLowerCase()} is designed for professional use. 
+                    Built with durable materials and precision engineering, it offers reliable performance.
                   </p>
                   <p>
                     Key features include advanced functionality, easy operation, and exceptional durability. 
-                    Perfect for both small-scale and commercial agricultural operations.
+                    Perfect for all-scale operations.
                   </p>
                   <p>
                     Backed by our comprehensive warranty and expert customer support, this product represents 
@@ -304,7 +328,6 @@ const ProductDetailPage = () => {
           </div>
         </div>
       </main>
-
       <Footer />
     </div>
   );

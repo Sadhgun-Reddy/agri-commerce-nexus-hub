@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet.jsx';
 import { Slider } from '@/components/ui/slider.jsx';
 import { useApp } from '@/contexts/AppContext.jsx';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination.jsx';
 
 const ProductsPage = () => {
@@ -21,13 +21,19 @@ const ProductsPage = () => {
   const [inStockOnly, setInStockOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 15;
-  
-  const { searchQuery, products } = useApp();
+
+  // ✅ get global values from AppContext
+  const { searchQuery, products, isProductsLoading, productsError, fetchProducts } = useApp();
   const [searchParams] = useSearchParams();
   const searchFromUrl = searchParams.get('search') || '';
   const categoryFromUrl = searchParams.get('category') || '';
 
-  // Set category filter from URL on component mount
+  // ✅ Fetch products globally (only once)
+  // useEffect(() => {
+  //   fetchProducts();
+  // }, [fetchProducts]);
+
+  // ✅ Category filter from URL
   useEffect(() => {
     if (categoryFromUrl && !selectedCategories.includes(categoryFromUrl)) {
       setSelectedCategories([categoryFromUrl]);
@@ -36,7 +42,7 @@ const ProductsPage = () => {
 
   const categories = [
     'Intercultivators/Power weeders',
-    'Earth Augers', 
+    'Earth Augers',
     'Seeders/planters',
     'Waterpumps & Engines',
     'Sprayers',
@@ -55,54 +61,59 @@ const ProductsPage = () => {
     'Lawn/Stubble Movers'
   ];
 
-  // Filter and sort products
-  const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product => {
-      // Price filter
-      if (product.price < priceRange[0] || product.price > priceRange[1]) return false;
-      
-      // Category filter
-      if (selectedCategories.length > 0 && !selectedCategories.includes(product.category)) return false;
-      
-      // Stock filter
-      if (inStockOnly && !product.inStock) return false;
-      
-      // Search filter
-      const searchTerm = searchFromUrl || searchQuery;
-      if (searchTerm) {
-        const search = searchTerm.toLowerCase();
-        return (
-          product.name.toLowerCase().includes(search) ||
-          product.category.toLowerCase().includes(search)
-        );
-      }
-      
-      return true;
-    });
+  // ✅ Filter & sort
+// ✅ Filter & sort
+const filteredProducts = useMemo(() => {
+  if (!products || products.length === 0) return [];
 
-    // Sort products
-    switch (sortBy) {
-      case 'price-low':
-        filtered.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        filtered.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        filtered.sort((a, b) => b.rating - a.rating);
-        break;
-      case 'newest':
-        filtered.sort((a, b) => b.id - a.id);
-        break;
-      default:
-        // featured - keep original order
-        break;
+  let filtered = products.filter(product => {
+    const productName = product.name?.toLowerCase() || '';
+    const productCategories = product.categories || [];
+    const productPrice = product.price || 0;
+
+    // Price filter
+    if (productPrice < priceRange[0] || productPrice > priceRange[1]) return false;
+
+    // Category filter
+    if (selectedCategories.length > 0 && !productCategories.some(cat => selectedCategories.includes(cat))) return false;
+
+    // Stock filter
+    if (inStockOnly && !product.inStock) return false;
+
+    // Search filter
+    const searchTerm = (searchFromUrl || searchQuery).toLowerCase();
+    if (searchTerm) {
+      return (
+        productName.includes(searchTerm) ||
+        productCategories.some(cat => cat.toLowerCase().includes(searchTerm))
+      );
     }
 
-    return filtered;
-  }, [products, priceRange, selectedCategories, inStockOnly, sortBy, searchQuery, searchFromUrl]);
+    return true;
+  });
 
-  // Pagination logic
+  // Sort
+  switch (sortBy) {
+    case 'price-low':
+      filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+      break;
+    case 'price-high':
+      filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+      break;
+    case 'rating':
+      filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      break;
+    case 'newest':
+      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      break;
+    default:
+      break;
+  }
+
+  return filtered;
+}, [products, priceRange, selectedCategories, inStockOnly, sortBy, searchQuery, searchFromUrl]);
+
+  // ✅ Pagination logic
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
   const startIndex = (currentPage - 1) * productsPerPage;
   const paginatedProducts = filteredProducts.slice(startIndex, startIndex + productsPerPage);
@@ -113,7 +124,7 @@ const ProductsPage = () => {
     } else {
       setSelectedCategories(prev => prev.filter(c => c !== category));
     }
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const resetFilters = () => {
@@ -128,13 +139,7 @@ const ProductsPage = () => {
       <div>
         <h3 className="font-semibold text-grey-800 mb-4">Price Range</h3>
         <div className="space-y-4">
-          <Slider
-            value={priceRange}
-            onValueChange={setPriceRange}
-            max={100000}
-            step={1000}
-            className="w-full"
-          />
+          <Slider value={priceRange} onValueChange={setPriceRange} max={100000} step={1000} className="w-full" />
           <div className="flex justify-between text-sm text-grey-600">
             <span>₹{priceRange[0].toLocaleString()}</span>
             <span>₹{priceRange[1].toLocaleString()}</span>
@@ -145,12 +150,12 @@ const ProductsPage = () => {
       <div>
         <h3 className="font-semibold text-grey-800 mb-4">Categories</h3>
         <div className="space-y-3 max-h-64 overflow-y-auto">
-          {categories.map((category) => (
+          {categories.map(category => (
             <div key={category} className="flex items-center space-x-2">
-              <Checkbox 
+              <Checkbox
                 id={category}
                 checked={selectedCategories.includes(category)}
-                onCheckedChange={(checked) => handleCategoryChange(category, checked)}
+                onCheckedChange={checked => handleCategoryChange(category, checked)}
               />
               <label htmlFor={category} className="text-sm text-grey-600 cursor-pointer">
                 {category}
@@ -162,17 +167,15 @@ const ProductsPage = () => {
 
       <div>
         <h3 className="font-semibold text-grey-800 mb-4">Availability</h3>
-        <div className="space-y-3">
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="in-stock"
-              checked={inStockOnly}
-              onCheckedChange={(checked) => setInStockOnly(checked)}
-            />
-            <label htmlFor="in-stock" className="text-sm text-grey-600 cursor-pointer">
-              In Stock Only
-            </label>
-          </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="in-stock"
+            checked={inStockOnly}
+            onCheckedChange={checked => setInStockOnly(checked)}
+          />
+          <label htmlFor="in-stock" className="text-sm text-grey-600 cursor-pointer">
+            In Stock Only
+          </label>
         </div>
       </div>
 
@@ -182,28 +185,44 @@ const ProductsPage = () => {
     </div>
   );
 
+  // ✅ Loader & error states
+  if (isProductsLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="loader"></div>
+        <p>Loading products...</p>
+      </div>
+    );
+  }
+
+  if (productsError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-red-600">
+        <p>Error: {productsError}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
-          {/* Page Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-grey-800 mb-2">
-              {searchFromUrl || searchQuery ? `Search Results for "${searchFromUrl || searchQuery}"` : 
-               categoryFromUrl ? `${categoryFromUrl} Products` : 'All Products'}
+              {searchFromUrl || searchQuery
+                ? `Search Results for "${searchFromUrl || searchQuery}"`
+                : categoryFromUrl
+                ? `${categoryFromUrl} Products`
+                : 'All Products'}
             </h1>
             <p className="text-grey-600">
-              {searchFromUrl || searchQuery 
-                ? `Found ${filteredProducts.length} products matching your search`
-                : `Showing ${filteredProducts.length} products`
-              }
+              {filteredProducts.length} products found
             </p>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* Desktop Filter Sidebar */}
+            {/* Sidebar */}
             <aside className="hidden lg:block w-80 flex-shrink-0">
               <Card className="p-6 sticky top-24">
                 <h2 className="font-semibold text-grey-800 mb-6">Filters</h2>
@@ -211,12 +230,10 @@ const ProductsPage = () => {
               </Card>
             </aside>
 
-            {/* Main Content */}
+            {/* Main */}
             <div className="flex-1">
-              {/* Filter Bar */}
               <div className="flex items-center justify-between mb-6 bg-grey-50 p-4 rounded-12">
                 <div className="flex items-center space-x-4">
-                  {/* Mobile Filter */}
                   <Sheet>
                     <SheetTrigger asChild>
                       <Button variant="outline" size="sm" className="lg:hidden">
@@ -240,7 +257,6 @@ const ProductsPage = () => {
                 </div>
 
                 <div className="flex items-center space-x-4">
-                  {/* Sort */}
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Sort by" />
@@ -254,7 +270,6 @@ const ProductsPage = () => {
                     </SelectContent>
                   </Select>
 
-                  {/* View Mode */}
                   <div className="hidden md:flex border rounded-6 p-1">
                     <Button
                       variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -276,28 +291,25 @@ const ProductsPage = () => {
                 </div>
               </div>
 
-              {/* Products Grid */}
+              {/* Products */}
               {paginatedProducts.length === 0 ? (
                 <div className="text-center py-16">
                   <h3 className="text-2xl font-bold text-grey-800 mb-2">No products found</h3>
-                  <p className="text-grey-600 mb-4">
-                    {searchFromUrl || searchQuery 
-                      ? 'Try adjusting your search terms or filters'
-                      : 'Try adjusting your filters'
-                    }
-                  </p>
                   <Button onClick={resetFilters} variant="outline">
                     Clear Filters
                   </Button>
                 </div>
               ) : (
-                <div className={`grid gap-6 ${
-                  viewMode === 'grid' 
-                    ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' 
-                    : 'grid-cols-1'
-                }`}>
+                <div
+                  className={`grid gap-6 ${
+                    viewMode === 'grid'
+                      ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+                      : 'grid-cols-1'
+                  }`}
+                >
                   {paginatedProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                    <ProductCard key={product._id || product.id} product={product} />
+
                   ))}
                 </div>
               )}
@@ -309,13 +321,13 @@ const ProductsPage = () => {
                     <PaginationContent>
                       {currentPage > 1 && (
                         <PaginationItem>
-                          <PaginationPrevious 
+                          <PaginationPrevious
                             onClick={() => setCurrentPage(currentPage - 1)}
                             className="cursor-pointer"
                           />
                         </PaginationItem>
                       )}
-                      
+
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
                         <PaginationItem key={pageNum}>
                           <PaginationLink
@@ -327,10 +339,10 @@ const ProductsPage = () => {
                           </PaginationLink>
                         </PaginationItem>
                       ))}
-                      
+
                       {currentPage < totalPages && (
                         <PaginationItem>
-                          <PaginationNext 
+                          <PaginationNext
                             onClick={() => setCurrentPage(currentPage + 1)}
                             className="cursor-pointer"
                           />
@@ -344,7 +356,6 @@ const ProductsPage = () => {
           </div>
         </div>
       </main>
-
       <Footer />
     </div>
   );
