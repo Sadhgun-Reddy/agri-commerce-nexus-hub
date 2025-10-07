@@ -9,7 +9,7 @@ const AppContext = createContext(undefined);
 
 // API base URL - using your tunnel URL
 // const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms"; // Ensure no trailing space
-const API_BASE_URL = "http://127.0.0.1:5000";
+const API_BASE_URL = "https://agri-tech-backend-07b8.onrender.com/";
 
 export const useApp = () => {
   const context = useContext(AppContext);

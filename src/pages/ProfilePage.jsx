@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { User, Mail, Lock, LogOut, Settings } from 'lucide-react';
-import Header from '@/components/layout/Header.jsx';
-import Footer from '@/components/layout/Footer.jsx';
-import { Button } from '@/components/ui/button.jsx';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
-import { Input } from '@/components/ui/input.jsx';
-import { useApp } from '@/contexts/AppContext.jsx';
-import { useNavigate } from 'react-router-dom';
-import LoginDialog from '@/components/auth/LoginDialog.jsx';
-import axios from 'axios';
-import { URLS } from '@/Urls.jsx';
-import { useToast } from '@/hooks/use-toast.js';
+import React, { useState, useEffect } from "react";
+import { User, Lock, LogOut, Settings } from "lucide-react";
+import Header from "@/components/layout/Header.jsx";
+import Footer from "@/components/layout/Footer.jsx";
+import { Button } from "@/components/ui/button.jsx";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.jsx";
+import { Input } from "@/components/ui/input.jsx";
+import { useApp } from "@/contexts/AppContext.jsx";
+import { useNavigate } from "react-router-dom";
+import LoginDialog from "@/components/auth/LoginDialog.jsx";
+import axios from "axios";
+import { URLS } from "@/Urls.jsx";
+import { useToast } from "@/hooks/use-toast.js";
 
 const ProfilePage = () => {
   const { user, isLoggedIn, logout, refreshUser } = useApp();
@@ -18,89 +18,109 @@ const ProfilePage = () => {
   const [showLoginDialog, setShowLoginDialog] = useState(!isLoggedIn);
   const { toast } = useToast();
 
-  // profile info
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
+  const [changePassword, setChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  // password change
-  const [oldPassword, setOldPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [changingPassword, setChangingPassword] = useState(false);
+  // Load user info when component mounts or user changes
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate("/");
   };
 
-  // Update Profile Info (name only)
-  const handleProfileUpdate = async () => {
-    setSaving(true);
+  const handleUpdate = async () => {
     try {
-      const token = localStorage.getItem('authToken');
-      await axios.put(
-        URLS.UpdateProfile,
-        { name },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        toast({
+          title: "Not authorized",
+          description: "Please log in again",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Prepare payload dynamically
+      const payload = {};
+      if (name && name !== user.name) payload.name = name.trim();
+      if (changePassword) {
+        if (!newPassword || !confirmPassword) {
+          toast({
+            title: "Missing fields",
+            description: "Please enter both password fields",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          toast({
+            title: "Password mismatch",
+            description: "New and confirm password do not match",
+            variant: "destructive",
+          });
+          return;
+        }
+        payload.password = newPassword;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        toast({
+          title: "No changes",
+          description: "You haven’t made any updates",
+          variant: "default",
+        });
+        return;
+      }
+
+      setSaving(true);
+      const res = await axios.put(URLS.UpdateProfile, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       await refreshUser();
-      toast({ title: 'Profile updated successfully', variant: 'success' });
+      toast({
+        title: "Profile updated successfully",
+        description: res.data.message,
+        variant: "success",
+      });
+
+      // Reset fields
+      setChangePassword(false);
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
       toast({
-        title: 'Profile update failed',
+        title: "Update failed",
         description: err.response?.data?.message || err.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
     }
   };
 
-  // Change Password
-  const handleChangePassword = async () => {
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      return toast({ title: 'Please fill all password fields', variant: 'destructive' });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return toast({ title: 'Passwords do not match', variant: 'destructive' });
-    }
-
-    setChangingPassword(true);
-    try {
-      const token = localStorage.getItem('authToken');
-      await axios.put(
-        URLS.UpdateProfile,
-        { oldPassword, newPassword },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setOldPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      toast({ title: 'Password changed successfully', variant: 'success' });
-    } catch (err) {
-      toast({
-        title: 'Password update failed',
-        description: err.response?.data?.message || err.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setChangingPassword(false);
-    }
-  };
-
-  // If not logged in
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-6">
-            <User className="w-24 h-24 mx-auto text-grey-300" />
+            <User className="w-24 h-24 mx-auto text-gray-300" />
             <div>
-              <h1 className="text-3xl font-bold text-grey-800 mb-2">Access Your Account</h1>
-              <p className="text-grey-600">Please log in to view your profile</p>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                Access Your Account
+              </h1>
+              <p className="text-gray-600">Please log in to view your profile</p>
             </div>
             <LoginDialog
               open={showLoginDialog}
@@ -120,18 +140,18 @@ const ProfilePage = () => {
 
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-grey-800 mb-8">My Profile</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-8">My Profile</h1>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Profile Sidebar */}
+            {/* Sidebar */}
             <div className="space-y-4">
               <Card>
                 <CardContent className="p-6 text-center">
                   <div className="w-20 h-20 bg-brand-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <User className="w-10 h-10 text-brand-primary-500" />
                   </div>
-                  <h3 className="font-semibold text-grey-800 mb-1">{user?.name}</h3>
-                  <p className="text-grey-600">{user?.email}</p>
+                  <h3 className="font-semibold text-gray-800 mb-1">{user?.name}</h3>
+                  <p className="text-gray-600">{user?.email}</p>
                 </CardContent>
               </Card>
 
@@ -159,9 +179,9 @@ const ProfilePage = () => {
               </Card>
             </div>
 
-            {/* Profile Content */}
+            {/* Main Profile Content */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Personal Information */}
+              {/* Personal Info */}
               <Card>
                 <CardHeader>
                   <CardTitle>Personal Information</CardTitle>
@@ -169,69 +189,64 @@ const ProfilePage = () => {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-grey-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Full Name
                       </label>
                       <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Enter your full name"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-grey-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
                         Email Address
                       </label>
                       <Input value={email} disabled readOnly />
                     </div>
                   </div>
-                  <Button disabled={saving} onClick={handleProfileUpdate}>
-                    {saving ? 'Saving...' : 'Update Profile'}
-                  </Button>
                 </CardContent>
               </Card>
 
-              {/* Security / Change Password */}
+              {/* Security Section */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Change Password</CardTitle>
+                  <CardTitle>Security</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-grey-700 mb-2">
-                      Current Password
-                    </label>
-                    <Input
-                      type="password"
-                      value={oldPassword}
-                      onChange={(e) => setOldPassword(e.target.value)}
-                      placeholder="Enter current password"
-                    />
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setChangePassword(!changePassword)}
+                    >
+                      <Lock className="w-4 h-4 mr-2" />
+                      {changePassword ? "Cancel Password Change" : "Change Password"}
+                    </Button>
+
+                    {changePassword && (
+                      <div className="mt-4 space-y-3">
+                        <label className="block text-sm font-medium text-gray-700">
+                          New Password
+                        </label>
+                        <Input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        <label className="block text-sm font-medium text-gray-700">
+                          Confirm Password
+                        </label>
+                        <Input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-grey-700 mb-2">
-                      New Password
-                    </label>
-                    <Input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-grey-700 mb-2">
-                      Confirm New Password
-                    </label>
-                    <Input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                  <Button disabled={changingPassword} onClick={handleChangePassword}>
-                    {changingPassword ? 'Changing...' : 'Change Password'}
+
+                  <Button disabled={saving} onClick={handleUpdate}>
+                    {saving ? "Saving..." : "Update Profile"}
                   </Button>
                 </CardContent>
               </Card>
