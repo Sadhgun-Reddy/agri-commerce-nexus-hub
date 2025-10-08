@@ -1,4 +1,4 @@
-const Url = "http://127.0.0.1:5000/"
+const Url = "https://agri-tech-backend-07b8.onrender.com/";
 
 export const URLS = {
 

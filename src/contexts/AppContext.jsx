@@ -9,7 +9,7 @@ const AppContext = createContext(undefined);
 
 // API base URL - using your tunnel URL
 // const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms"; // Ensure no trailing space
-const API_BASE_URL = "https://agri-tech-backend-07b8.onrender.com/";
+ const API_BASE_URL = "https://agri-tech-backend-07b8.onrender.com/api/auth";
 
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -54,9 +54,12 @@ export const AppProvider = ({ children }) => {
     setIsProductsLoading(true);
     setProductsError(null);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/products`);
+      const response = await axios.get(`${URLS.Products}`);
+      // const response = await axios.get(`${URLS.GetProfile}
+      // console.log("Products response:", url);
       // Assuming the API returns an array of products directly
       // Adjust the data access (e.g., response.data.products) if your API structure is different
+      console.log("Products response:", response.data);
       setProducts(response.data);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -94,26 +97,25 @@ export const AppProvider = ({ children }) => {
   }, []); // Empty dependency array means this runs once on mount
 
   // Fetch user details using token
+  
   const fetchUserDetails = async (token) => {
     try {
       const response = await axios.get(`${URLS.GetProfile}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const userData = response.data.user;
-      const normalizedUser = {
-        id: userData.id || userData._id, // Handle both id and _id
-        email: userData.email,
-        name: userData.name || userData.username || 'User',
-      };
-      setUser(normalizedUser);
-      return normalizedUser;
+      setUser(response.data.user);
+      return response.data.user;
     } catch (error) {
-      console.error('Error fetching user details:', error);
-      throw error;
+      console.error("Profile fetch error:", error);
+      if (
+        error.response &&
+        (error.response.status === 401 || error.response.data.message === "Invalid or expired token")
+      ) {
+        logout();
+      }
+      return null;
     }
-  };
+  }
 
   const loadWishlistFromServer = async (token, userId) => {
     try {
@@ -284,7 +286,7 @@ export const AppProvider = ({ children }) => {
 
       // If no token provided, authenticate with credentials
       if (!actualToken) {
-        const response = await axios.post(`${API_BASE_URL}/api/auth/signin`, {
+        const response = await axios.post(`${API_BASE_URL}/signin`, {
           email,
           password
         });
