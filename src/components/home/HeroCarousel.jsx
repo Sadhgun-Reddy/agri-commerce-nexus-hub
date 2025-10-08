@@ -13,7 +13,7 @@ const HeroCarousel = () => {
       subtitle: "Boost Your Agricultural Productivity",
       description: "Discover our range of high-quality tractors, harvesters, and farming tools designed for modern agriculture.",
       cta: "Shop Tractors",
-      ctaLink: "/category/tractors",
+      ctaLink: "",
       image: "https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2069&q=80",
       gradient: "from-brand-primary-500/90 to-brand-primary-600/90"
     },
@@ -23,7 +23,7 @@ const HeroCarousel = () => {
       subtitle: "Smart Water Management Solutions",
       description: "Advanced drip irrigation and sprinkler systems to optimize water usage and maximize crop yield.",
       cta: "Explore Systems",
-      ctaLink: "/category/irrigation",
+      ctaLink: "",
       image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
       gradient: "from-blue-500/90 to-blue-600/90"
     },
@@ -33,7 +33,7 @@ const HeroCarousel = () => {
       subtitle: "Quality Inputs for Better Harvest",
       description: "Premium quality seeds, organic fertilizers, and plant protection products for sustainable farming.",
       cta: "View Products",
-      ctaLink: "/category/seeds",
+      ctaLink: "",
       image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2069&q=80",
       gradient: "from-green-500/90 to-green-600/90"
     }
@@ -88,12 +88,12 @@ const HeroCarousel = () => {
                     </p>
                     <div className="pt-4">
                       <Link to={slide.ctaLink}>
-                        <Button 
+                        {/* <Button 
                           size="lg" 
                           className="bg-white text-grey-800 hover:bg-grey-100 px-8 py-3 text-lg font-semibold"
                         >
                           {slide.cta}
-                        </Button>
+                        </Button> */}
                       </Link>
                     </div>
                   </div>

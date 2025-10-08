@@ -8,6 +8,8 @@ import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 
 const ProductCard = ({ product }) => {
+
+
   const { addToCart, toggleWishlist, isInWishlist } = useApp();
   const { toast } = useToast();
 
@@ -29,6 +31,7 @@ const ProductCard = ({ product }) => {
       });
     }
   };
+  const isInStock = (product.quantity || 0) > 0;
 
   return (
     <Card className="group overflow-hidden border-0 shadow-level-1 hover:shadow-level-2 transition-all duration-200 animate-card-hover">
@@ -79,7 +82,7 @@ const ProductCard = ({ product }) => {
         </div>
 
         {/* Stock indicator */}
-        {!product.inStock && (
+        {!isInStock && (
           <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
             <span className="bg-red-500 text-white px-3 py-1 rounded-12 font-medium">
               Out of Stock
@@ -91,9 +94,9 @@ const ProductCard = ({ product }) => {
       <CardContent className="p-4">
         <div className="space-y-3">
           <div>
-           <p className="text-sm text-grey-600 mb-1">
+           {/* <p className="text-sm text-grey-600 mb-1">
               {product.categories?.join(', ') || 'Uncategorized'}
-            </p>
+            </p> */}
             <Link to={`/product/${product.sku}`}>
               <h3 className="font-semibold text-grey-800 hover:text-brand-primary-500 transition-colors line-clamp-2">
                 {product.name}
@@ -132,16 +135,13 @@ const ProductCard = ({ product }) => {
           </div>
 
           {/* View Product Button */}
-          <Link to={`/product/${product.sku || product._id}`}>
-            <Button 
-              className="w-full" 
-              size="sm"
-              disabled={!product.inStock}
-            >
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              {product.inStock ? 'View Product' : 'Out of Stock'}
-            </Button>
-          </Link>
+          <Link to={`/product/${product._id}`}>
+          <Button className="w-full" size="sm" disabled={!isInStock}>
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            {isInStock ? 'View Product' : 'Out of Stock'}
+          </Button>
+        </Link>
+              
         </div>
       </CardContent>
     </Card>

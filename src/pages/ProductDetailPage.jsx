@@ -21,6 +21,7 @@ const ProductDetailPage = () => {
   const wishlistKey = product ? (product.sku || product._id || product.id) : null;
   const cartItem = cartItems.find(item => item.id === product?._id);
   const quantity = cartItem?.quantity || 0;
+  const isInStock = (product?.quantity || 0) > 0;
 
   useEffect(() => {
     if (!product) {
@@ -29,6 +30,7 @@ const ProductDetailPage = () => {
   }, [product, navigate]);
 
   if (!product) return null;
+  
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', {
@@ -39,7 +41,7 @@ const ProductDetailPage = () => {
   };
 
   const handleAddToCart = () => {
-    if (product.inStock) {
+    if (isInStock) {
       addToCart(product);
       toast({
         title: "Added to cart!",
@@ -100,7 +102,8 @@ const ProductDetailPage = () => {
     { label: 'Availability', value: product.inStock ? 'In Stock' : 'Out of Stock' },
     { label: 'Brand', value: product.brand || 'AgriPro' },
     { label: 'Warranty', value: product.warranty || '2 Years' },
-    { label: 'Model', value: (product.sku || product._id).toUpperCase() }
+    { label: 'Model', value: (product.sku || product._id).toUpperCase() },
+    { label: 'Stock Quantity', value: isInStock ? `${product.quantity} available` : '0' } 
   ];
 
   return (
@@ -219,7 +222,7 @@ const ProductDetailPage = () => {
 
                 {/* Stock Status */}
                 <div className="mb-6">
-                  {product.inStock ? (
+                  {isInStock ? (
                     <div className="flex items-center text-green-600">
                       <div className="w-2 h-2 bg-green-600 rounded-full mr-2"></div>
                       <span className="font-medium">In Stock</span>
@@ -239,11 +242,11 @@ const ProductDetailPage = () => {
                   <Button
                     className="w-full h-12 text-lg"
                     size="lg"
-                    disabled={!product.inStock}
+                    disabled={!isInStock}
                     onClick={handleAddToCart}
                   >
                     <ShoppingCart className="w-5 h-5 mr-2" />
-                    {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+                    {isInStock ? 'Add to Cart' : 'Out of Stock'}
                   </Button>
                 ) : (
                   <div className="flex items-center space-x-4">
@@ -251,7 +254,8 @@ const ProductDetailPage = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleUpdateQuantity(quantity - 1)}
+                        onClick={() =>isInStock && handleUpdateQuantity(quantity - 1)}
+                        disabled={!isInStock}
                         className="h-12 w-12"
                       >
                         <Minus className="w-4 h-4" />
@@ -269,7 +273,7 @@ const ProductDetailPage = () => {
                       </Button>
                     </div>
                     <span className="text-grey-600">
-                      Total: {formatPrice((product.price || 0) * quantity)}
+                    Total: {formatPrice((product.price || 0) * quantity)}
                     </span>
                   </div>
                 )}
@@ -289,17 +293,17 @@ const ProductDetailPage = () => {
 
               {/* Specifications */}
               <Card>
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-semibold text-grey-800 mb-4">Specifications</h3>
-                  <div className="space-y-3">
-                    {specifications.map((spec, index) => (
-                      <div key={index} className="flex justify-between py-2 border-b border-grey-100 last:border-0">
-                        <span className="text-grey-600">{spec.label}</span>
-                        <span className="font-medium text-grey-800">{spec.value}</span>
-                      </div>
-                    ))}
+              <CardContent className="p-6">
+              <h3 className="text-xl font-semibold text-grey-800 mb-4">Specifications</h3>
+              <div className="space-y-3">
+                {specifications.map((spec, index) => (
+                  <div key={index} className="flex justify-between py-2 border-b border-grey-100 last:border-0">
+                    <span className="text-grey-600">{spec.label}</span>
+                    <span className="font-medium text-grey-800">{spec.value}</span>
                   </div>
-                </CardContent>
+                ))}
+              </div>
+            </CardContent>
               </Card>
             </div>
           </div>

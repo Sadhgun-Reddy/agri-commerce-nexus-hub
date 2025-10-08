@@ -12,21 +12,21 @@ const Footer = () => {
   const footerLinks = {
     company: [
       { name: 'About Us', href: '/about' },
-      { name: 'Our Story', href: '/story' },
-      { name: 'Careers', href: '/careers' },
-      { name: 'Press', href: '/press' },
+      { name: 'Our Story', href: '' },
+      { name: 'Careers', href: '' },
+      { name: 'Press', href: '' },
     ],
     support: [
-      { name: 'Help Center', href: '/help' },
-      { name: 'Safety Center', href: '/safety' },
-      { name: 'Community Guidelines', href: '/guidelines' },
+      { name: 'Help Center', href: '' },
+      { name: 'Safety Center', href: '' },
+      { name: 'Community Guidelines', href: '' },
       { name: 'Contact Us', href: '/contact' },
     ],
     legal: [
-      { name: 'Privacy Policy', href: '/privacy' },
-      { name: 'Terms of Service', href: '/terms' },
-      { name: 'Cookie Policy', href: '/cookies' },
-      { name: 'Return Policy', href: '/returns' },
+      { name: 'Privacy Policy', href: '' },
+      { name: 'Terms of Service', href: '' },
+      { name: 'Cookie Policy', href: '' },
+      { name: 'Return Policy', href: '' },
     ],
   };
 

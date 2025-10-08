@@ -40,15 +40,38 @@ const WishlistPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {wishlistItems.map((item) => {
-                const product = {
+
+              const computedInStock = (item.quantity || 0) > 0;
+  const product = {
                   ...item,
-                  inStock: item.inStock !== undefined ? item.inStock : true,
+                  inStock: computedInStock,  // Override with computation
                   images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
                   categories: Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []),
                   reviewsCount: item.reviewsCount || item.reviews || 0,
+                  rating: item.rating || 0,  // Fallback for card rendering
                 };
+                
+                // Add direct add-to-cart from wishlist (optional enhancement)
+                const handleQuickAdd = () => {
+                  if (computedInStock) {
+                    addToCart(product);
+                  }
+                }
+                
                 return (
-                  <ProductCard key={item.sku || item.id} product={product} />
+                  <div key={item.sku || item._id} className="relative">
+                    <ProductCard product={product} />
+                    {computedInStock && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute top-2 right-2 z-10"
+                        onClick={handleQuickAdd}
+                      >
+                        Add to Cart
+                      </Button>
+                    )}
+                  </div>
                 );
               })}
             </div>
