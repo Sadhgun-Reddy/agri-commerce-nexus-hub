@@ -3,13 +3,10 @@ import axios from 'axios';
 import { URLS } from '../Urls';
 import { toast } from '@/hooks/use-toast.js';
 
-
-
 const AppContext = createContext(undefined);
 
-// API base URL - using your tunnel URL
-// const API_BASE_URL = "https://p62fbn3v-5000.inc1.devtunnels.ms"; // Ensure no trailing space
- const API_BASE_URL = "https://agri-tech-backend-07b8.onrender.com/api/auth";
+// API base URL
+const API_BASE_URL = "https://agri-tech-backend-07b8.onrender.com/api/auth";
 
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -33,7 +30,7 @@ export const AppProvider = ({ children }) => {
   const [pendingWishlistProduct, setPendingWishlistProduct] = useState(null);
 
   // Product state
-  const [products, setProducts] = useState([]); // Start with empty array
+  const [products, setProducts] = useState([]);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState(null);
 
@@ -41,6 +38,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cartItems));
   }, [cartItems]);
+
   const getWishlistStorageKey = (uid) => `wishlist:${uid}`;
 
   useEffect(() => {
@@ -55,11 +53,6 @@ export const AppProvider = ({ children }) => {
     setProductsError(null);
     try {
       const response = await axios.get(`${URLS.Products}`);
-      // const response = await axios.get(`${URLS.GetProfile}
-      // console.log("Products response:", url);
-      // Assuming the API returns an array of products directly
-      // Adjust the data access (e.g., response.data.products) if your API structure is different
-      console.log("Products response:", response.data);
       setProducts(response.data);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -83,8 +76,8 @@ export const AppProvider = ({ children }) => {
           }
         } catch (error) {
           console.error('Failed to initialize auth:', error);
-          // Clear invalid token
-          localStorage.removeItem('authToken');
+          // Clear invalid token and user data
+          clearAuthData();
         }
       }
       setIsAuthLoading(false);
@@ -94,17 +87,62 @@ export const AppProvider = ({ children }) => {
     };
 
     initializeApp();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
+
+  // Helper function to clear auth data from localStorage
+  const clearAuthData = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userCart');
+  };
+
+  // Helper function to store user data in localStorage
+  const storeUserData = (userData, cart) => {
+    if (userData.name) {
+      localStorage.setItem('userName', userData.name);
+    }
+    if (userData.email) {
+      localStorage.setItem('userEmail', userData.email);
+    }
+    if (userData.role) {
+      localStorage.setItem('userRole', userData.role);
+    }
+    if (cart) {
+      localStorage.setItem('userCart', JSON.stringify(cart));
+    }
+  };
 
   // Fetch user details using token
-  
   const fetchUserDetails = async (token) => {
     try {
       const response = await axios.get(`${URLS.GetProfile}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUser(response.data.user);
-      return response.data.user;
+      
+      const userData = response.data.user;
+      const userCart = response.data.cart || [];
+      
+      // Store user data in localStorage
+      storeUserData(userData, userCart);
+      
+      // Set user state with role
+      setUser({
+        id: userData._id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        cart: userCart
+      });
+      
+      return {
+        id: userData._id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        cart: userCart
+      };
     } catch (error) {
       console.error("Profile fetch error:", error);
       if (
@@ -115,7 +153,7 @@ export const AppProvider = ({ children }) => {
       }
       return null;
     }
-  }
+  };
 
   const loadWishlistFromServer = async (token, userId) => {
     try {
@@ -211,7 +249,6 @@ export const AppProvider = ({ children }) => {
   const toggleWishlist = async (product) => {
     const token = localStorage.getItem('authToken');
     if (!token) {
-      // Defer the wishlist add until after login
       setPendingWishlistProduct(product);
       localStorage.setItem('pendingRedirectToWishlist', '1');
       openLoginDialog();
@@ -225,11 +262,10 @@ export const AppProvider = ({ children }) => {
         return;
       }
       if (isInWishlist(key)) {
-        // Optional: call backend remove if available
         try {
           await axios.post(`${URLS.WishlistRemove}/${productId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
         } catch {
-          // ignore backend remove error, proceed to local update
+          // ignore backend remove error
         }
         removeFromWishlist(key);
         toast({ title: 'Removed from wishlist', variant: 'destructive' });
@@ -242,7 +278,6 @@ export const AppProvider = ({ children }) => {
           const statusAdd = err.response?.status;
           const msg = err.response?.data?.message?.toString().toLowerCase();
           if (statusAdd === 400 && msg && msg.includes('already')) {
-            // Backend says it already exists → ensure local state reflects it
             addToWishlist(product);
             toast({ title: 'Already in wishlist', description: 'This item is already saved.', variant: 'success' });
           } else {
@@ -291,8 +326,7 @@ export const AppProvider = ({ children }) => {
           password
         });
         console.log("Login API response:", response.data);
-
-        actualToken = response.data.token; // Adjust based on your API response structure
+        actualToken = response.data.token;
       }
 
       if (actualToken) {
@@ -301,7 +335,8 @@ export const AppProvider = ({ children }) => {
         if (fetchedUser?.id) {
           await loadWishlistFromServer(actualToken, fetchedUser.id);
         }
-        // If login was triggered from a pending wishlist add, complete it and go to wishlist
+        
+        // Handle pending wishlist product
         if (pendingWishlistProduct) {
           try {
             const productId = pendingWishlistProduct._id || pendingWishlistProduct.id;
@@ -317,27 +352,24 @@ export const AppProvider = ({ children }) => {
       return false;
     } catch (error) {
       console.error('Login error:', error);
-      logout(); // Clear any partial state
-
-      // Show specific error message if available
+      clearAuthData();
       const errorMessage = error.response?.data?.message || 'Login failed';
       throw new Error(errorMessage);
     }
   };
 
   const loginWithGoogle = async () => {
-    // Implement Google login logic
-    // This is a placeholder - implement based on your Google auth flow
     try {
-      // Your Google auth implementation here
-      // After successful Google login, you should get a token
-      // Then call fetchUserDetails with that token
-      setUser({
+      // Implement your Google auth logic here
+      // After successful login, store user data
+      const userData = {
         id: 'google-1',
         email: 'user@gmail.com',
         name: 'Google User',
-        isAdmin: false
-      });
+        role: 'user'
+      };
+      storeUserData(userData, []);
+      setUser(userData);
       return true;
     } catch (error) {
       console.error('Google login error:', error);
@@ -346,7 +378,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('authToken');
+    clearAuthData();
     setUser(null);
     setWishlistItems([]);
     toast({
@@ -392,8 +424,6 @@ export const AppProvider = ({ children }) => {
     return orders;
   };
 
-  // Note: These admin functions still use local state. If you want full backend integration,
-  // you'll need to make API calls for add/update/delete product operations as well.
   const updateProduct = (updatedProduct) => {
     setProducts(prev =>
       prev.map(product =>
@@ -407,7 +437,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const addProduct = (newProduct) => {
-    const id = Math.max(...products.map(p => p.id), 0) + 1; // Handle empty products array
+    const id = Math.max(...products.map(p => p.id), 0) + 1;
     setProducts(prev => [...prev, { ...newProduct, id }]);
   };
 
@@ -418,7 +448,6 @@ export const AppProvider = ({ children }) => {
       )
     );
   };
-
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 

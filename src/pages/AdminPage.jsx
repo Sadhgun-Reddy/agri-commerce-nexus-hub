@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, ShoppingCart, Users, Settings, Plus, Edit2, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header.jsx';
 import Footer from '@/components/layout/Footer.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,8 @@ import ProductForm from '@/components/admin/ProductForm.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const AdminPage = () => {
+  const navigate = useNavigate();
+  const { user, isAuthLoading } = useApp();
   const [activeTab, setActiveTab] = useState('orders');
   const [editingProduct, setEditingProduct] = useState(null);
   const [showProductForm, setShowProductForm] = useState(false);
@@ -25,6 +28,18 @@ const AdminPage = () => {
     addProduct 
   } = useApp();
   const { toast } = useToast();
+
+  // Additional security check
+  useEffect(() => {
+    if (!isAuthLoading && (!user || user.role !== 'admin')) {
+      toast({
+        title: 'Access Denied',
+        description: 'Administrator privileges required.',
+        variant: 'destructive',
+      });
+      navigate('/');
+    }
+  }, [user, isAuthLoading, navigate, toast]);
 
   const orders = getAllOrders();
 
@@ -86,6 +101,14 @@ const AdminPage = () => {
     }
   };
 
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -93,8 +116,17 @@ const AdminPage = () => {
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-grey-800 mb-2">Admin Dashboard</h1>
-            <p className="text-grey-600">Manage your products, orders, and customers</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-grey-800 mb-2">Admin Dashboard</h1>
+                <p className="text-grey-600">Manage your products, orders, and customers</p>
+              </div>
+              {user && (
+                <Badge variant="default" className="text-sm">
+                  Admin: {user.name}
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -266,7 +298,7 @@ const AdminPage = () => {
                       <TableRow key={product.id}>
                         <TableCell>
                           <img 
-                            src={product.image} 
+                            src={product.image || (product.images && product.images[0])} 
                             alt={product.name}
                             className="w-12 h-12 object-cover rounded"
                           />
@@ -282,15 +314,15 @@ const AdminPage = () => {
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="outline"
                               onClick={() => handleProductEdit(product)}
                             >
                               <Edit2 className="w-4 h-4" />
                             </Button>
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="destructive"
                               onClick={() => handleProductDelete(product.id)}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -306,7 +338,7 @@ const AdminPage = () => {
           )}
         </div>
       </main>
-
+      
       <Footer />
     </div>
   );
