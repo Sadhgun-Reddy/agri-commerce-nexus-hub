@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import Header from '@/components/layout/Header.jsx';
 import Footer from '@/components/layout/Footer.jsx';
-import { useApp } from '@/contexts/AppContext.jsx';
 import { Button } from '@/components/ui/button.jsx';
-import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Link } from 'react-router-dom';
-import { URLS } from '@/Urls.jsx';
 import ProductCard from '@/components/products/ProductCard.jsx';
+import { URLS } from '@/Urls.jsx';
+import { useApp } from '@/contexts/AppContext.jsx'; // <- use your context
 
 const normalizeImageUrl = (src) => {
   if (!src) return '/placeholder.svg';
@@ -21,7 +21,25 @@ const normalizeImageUrl = (src) => {
 };
 
 const WishlistPage = () => {
-  const { wishlistItems, removeFromWishlist, addToCart } = useApp();
+  const { wishlistItems, setWishlistItems, loadWishlistFromServer, addToCart,removeFromWishlist } = useApp(); // <- context functions
+  const [loading, setLoading] = useState(false);
+
+  const token = localStorage.getItem("access_token");
+  
+  const userId = localStorage.getItem("userId");
+
+
+  useEffect(() => {
+  const handleUpdate = () => {
+    const token = localStorage.getItem("authToken");
+    // const userId = localStorage.getItem("userId");
+    loadWishlistFromServer(token);
+  };
+
+  window.addEventListener('wishlist-updated', handleUpdate);
+  return () => window.removeEventListener('wishlist-updated', handleUpdate);
+}, [loadWishlistFromServer]);
+
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -30,7 +48,9 @@ const WishlistPage = () => {
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold text-grey-800 mb-8">My Wishlist</h1>
 
-          {wishlistItems.length === 0 ? (
+          {loading ? (
+            <p>Loading...</p>
+          ) : wishlistItems.length === 0 ? (
             <div className="text-center py-16">
               <p className="text-grey-600 mb-6">Your wishlist is empty.</p>
               <Link to="/products">
@@ -39,38 +59,28 @@ const WishlistPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {wishlistItems.map((item) => {
-
-              const computedInStock = (item.quantity || 0) > 0;
-  const product = {
+              {wishlistItems.map(item => {
+                const computedInStock = (item.quantity || 0) > 0;
+                const product = {
                   ...item,
-                  inStock: computedInStock,  // Override with computation
+                  inStock: computedInStock,
                   images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
                   categories: Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []),
                   reviewsCount: item.reviewsCount || item.reviews || 0,
-                  rating: item.rating || 0,  // Fallback for card rendering
+                  rating: item.rating || 0
                 };
-                
-                // Add direct add-to-cart from wishlist (optional enhancement)
-                const handleQuickAdd = () => {
-                  if (computedInStock) {
-                    addToCart(product);
-                  }
-                }
-                
+
                 return (
-                  <div key={item.sku || item._id} className="relative">
+                  <div key={item._id} className="relative">
                     <ProductCard product={product} />
-                    {computedInStock && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="absolute top-2 right-2 z-10"
-                        onClick={handleQuickAdd}
-                      >
-                        Add to Cart
-                      </Button>
-                    )}
+                    <div className="absolute top-2 right-2 flex flex-col gap-2">
+                      {computedInStock && (
+                        <Button variant="outline" size="sm" onClick={() => addToCart(product)}>
+                          Add to Cart
+                        </Button>
+                      )}
+                      
+                    </div>
                   </div>
                 );
               })}
@@ -84,5 +94,3 @@ const WishlistPage = () => {
 };
 
 export default WishlistPage;
-
-

@@ -15,4 +15,9 @@ export const URLS = {
     WishlistAdd: Url + "api/wishlist/add",
     WishlistRemove: Url + "api/wishlist/remove",
     WishlistGet: Url + "api/wishlist",
+
+    CartAdd: Url + "api/cart/add",
+    CartUpdate: Url + "api/cart/update",
+    CartGet: Url + "api/cart",
+    CartRemove: (productId) => Url + `api/cart/remove/${productId}`
 } 

@@ -38,6 +38,8 @@ const ProductDetailPage = () => {
     }
   }, [product, navigate]);
 
+  
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -79,9 +81,13 @@ const ProductDetailPage = () => {
     }
   };
 
-  const handleToggleWishlist = () => {
+  const handleToggleWishlist = async () => {
     if (!product) return;
-    toggleWishlist(product);
+    await toggleWishlist(product);
+    setTimeout(() => {
+    // force re-render for instant UI update
+    window.dispatchEvent(new Event("wishlist-updated"));
+  }, 100);
   };
 
   const handleShare = async () => {
