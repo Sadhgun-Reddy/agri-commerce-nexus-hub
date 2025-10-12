@@ -79,22 +79,23 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
       try {
         const success = await login(email, password);
         if (success) {
-          toast({
-            title: "Welcome back!",
-            description: "You have been successfully logged in.",
-            variant: "success",
-          });
-          if (onOpenChange) onOpenChange(false);
-          resetForm();
-          // Redirect to wishlist if login was triggered by wishlist intent; fallback to profile
-          const pending = localStorage.getItem('pendingRedirectToWishlist');
-          if (pending) {
-            localStorage.removeItem('pendingRedirectToWishlist');
-            navigate('/wishlist');
-          } else {
-            navigate('/profile');
-          }
-        }
+  toast({
+    title: "Welcome back!",
+    description: "You have been successfully logged in.",
+    variant: "success",
+  });
+  navigate('/');
+  if (onOpenChange) onOpenChange(false);
+  resetForm();
+  // Redirect to wishlist if login was triggered by wishlist intent; fallback to profile
+  const pending = localStorage.getItem('pendingRedirectToWishlist');
+  if (pending) {
+    localStorage.removeItem('pendingRedirectToWishlist');
+    navigate('/wishlist');
+  } else {
+    navigate('/profile');
+  }
+}
       } catch (error) {
         toast({
           title: "Login failed",
