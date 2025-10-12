@@ -60,38 +60,23 @@ const WishlistPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {wishlistItems.map(item => {
-                const computedInStock = (item.quantity || 0) > 0;
-                const product = {
-                  ...item,
-                  inStock: computedInStock,
-                  images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
-                  categories: Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []),
-                  reviewsCount: item.reviewsCount || item.reviews || 0,
-                  rating: item.rating || 0
-                };
+  const computedInStock = (item.quantity || 0) > 0;
+  const product = {
+    ...item,
+    inStock: computedInStock,
+    images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
+    categories: Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []),
+    reviewsCount: item.reviewsCount || item.reviews || 0,
+    rating: item.rating || 0
+  };
 
-                return (
-                  <div key={item._id} className="relative">
-                    <ProductCard product={product} />
-                    <div className="absolute top-2 right-2 flex flex-col gap-2">
-                      {computedInStock && (
-                      <div className="absolute top-3 right-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addToCart(product)}
-                          className="bg-brand-primary-50 hover:bg-brand-primary-100 text-brand-primary-700 border-brand-primary-200"
-                        >
-                          Add to Cart
-                        </Button>
-                      </div>
-                    )}
+  return (
+    <div key={item._id}>
+      <ProductCard product={product} />
+    </div>
+  );
+})}
 
-                      
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           )}
         </div>

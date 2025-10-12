@@ -212,7 +212,7 @@ const mapCartProduct = (item) => ({
       const mapped = products.map((product) => ({
         id: product.id || product._id,
         sku: product.sku,
-        name: product.name,
+        name: product.name || product.productName,
         price: product.price,
         image: (product.images && product.images[0]) || product.image,
         images: product.images,
@@ -222,7 +222,9 @@ const mapCartProduct = (item) => ({
         reviewsCount: product.reviewsCount || product.reviews,
         originalPrice: product.originalPrice,
         discount: product.discount,
-        inStock: product.inStock,
+        quantity: product.quantity || 0,           // <-- include quantity
+        inStock: (product.quantity || 0) > 0 || product.inStock, 
+         
       }));
       setWishlistItems(mapped);
     } catch (error) {

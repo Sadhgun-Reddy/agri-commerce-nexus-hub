@@ -38,7 +38,16 @@ const ProductDetailPage = () => {
     }
   }, [product, navigate]);
 
-  
+  useEffect(() => {
+  const handleWishlistUpdate = () => {
+    fetchWishlist(); // Your existing function to fetch updated wishlist items
+  };
+
+  window.addEventListener("wishlist-updated", handleWishlistUpdate);
+
+  return () => window.removeEventListener("wishlist-updated", handleWishlistUpdate);
+}, []);
+
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -81,14 +90,15 @@ const ProductDetailPage = () => {
     }
   };
 
-  const handleToggleWishlist = async () => {
-    if (!product) return;
-    await toggleWishlist(product);
-    setTimeout(() => {
-    // force re-render for instant UI update
-    window.dispatchEvent(new Event("wishlist-updated"));
-  }, 100);
-  };
+const handleToggleWishlist = async () => {
+  if (!product) return;
+
+  await toggleWishlist(product);
+  const newState = !saved; // toggle state locally
+  setSaved(newState);
+  window.dispatchEvent(new Event("wishlist-updated")); // for other components
+};
+
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -439,19 +449,27 @@ const ProductDetailPage = () => {
                       )}
 
                       <div className="grid grid-cols-2 gap-3">
-                        <Button 
-                          variant="outline" 
-                          size="lg" 
-                          className="h-12 border-2 hover:bg-grey-50"
-                          onClick={handleToggleWishlist}
-                        >
-                          <Heart 
-                            className={`w-5 h-5 mr-2 ${
-                              wishlistKey && isInWishlist(wishlistKey) ? 'text-red-500 fill-red-500' : ''
-                            }`}
-                          />
-                          {wishlistKey && isInWishlist(wishlistKey) ? 'Saved' : 'Save'}
-                        </Button>
+                      <Button
+  variant="outline"
+  size="lg"
+  className="h-12 border-2 hover:bg-grey-50"
+  onClick={async () => {
+    if (!product) return;
+
+    await toggleWishlist(product); // Add/remove from wishlist
+
+    // Trigger wishlist page update
+    window.dispatchEvent(new Event("wishlist-updated"));
+  }}
+>
+  <Heart
+    className={`w-5 h-5 mr-2 ${
+      wishlistKey && isInWishlist(wishlistKey) ? 'text-red-500 fill-red-500' : ''
+    }`}
+  />
+  {wishlistKey && isInWishlist(wishlistKey) ? 'Saved' : 'Save'}
+</Button>
+
                         <Button 
                           variant="outline" 
                           size="lg" 

@@ -13,6 +13,7 @@ const ProductCard = ({ product }) => {
   // ✅ Safe property access with fallbacks
   const productId = product._id || product.id;
   const productName = product.name || product.productName || 'Unnamed Product';
+  console.log("Product in ProductCard:", productName);
   const productImage = product.images?.[0] || product.image || '/placeholder.jpg';
   const productPrice = product.price || 0;
   const productOriginalPrice = product.originalPrice || product.price || 0;
