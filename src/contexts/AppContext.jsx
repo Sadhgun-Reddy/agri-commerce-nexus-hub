@@ -107,23 +107,25 @@ export const AppProvider = ({ children }) => {
     }
   };
 
- const loadCartFromServer = async (token) => {
-    try {
-      const res = await axios.get(URLS.CartGet, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = res.data;
+const loadCartFromServer = async (token) => {
+  try {
+    const res = await axios.get(URLS.CartGet, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = res.data.data.items; // this is already an array
+    console.log("Cart items from server:", data);
 
-      if (data.items && Array.isArray(data.items)) {
-        setCartItems(data.items.map(mapCartItem));
-      } else {
-        setCartItems([]);
-      }
-    } catch (error) {
-      console.error('Error fetching cart:', error);
+    if (Array.isArray(data)) {
+      setCartItems(data.map(mapCartItem)); // map each item if needed
+    } else {
       setCartItems([]);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching cart:', error);
+    setCartItems([]);
+  }
+};
+
 
 
 
@@ -375,23 +377,36 @@ const onLoginSuccess = async (token) => {
 };
 
 const updateQuantity = async (productId, action) => {
+  // Optimistically update UI
+  setCartItems(prev =>
+    prev.map(item => {
+      if (item.product._id === productId) {
+        const newQty = action === "increment" ? item.quantity + 1 : item.quantity - 1;
+        return { ...item, quantity: Math.max(newQty, 1) }; // prevent < 1
+      }
+      return item;
+    })
+  );
+
+  // Then call API
   const token = localStorage.getItem("authToken");
   if (!token) return;
 
   try {
     const res = await axios.put(
       URLS.CartUpdate,
-      { productId, action }, // make sure productId is here
+      { productId, action },
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    if (res.data.items) {
-      setCartItems(res.data.items.map(mapCartProduct));
+    if (res.data.data?.items) {
+      setCartItems(res.data.data.items.map(mapCartProduct)); // sync with server
     }
   } catch (error) {
     console.error("Error updating quantity:", error);
   }
 };
+
 
   const removeFromCart = async (productId) => {
   const token = localStorage.getItem('authToken');
