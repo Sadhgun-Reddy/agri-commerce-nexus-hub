@@ -6,6 +6,10 @@ import { useNavigate } from "react-router-dom";
 
 const AboutUs = () => {
       const navigate = useNavigate();
+    const handleClick = () => {
+    navigate("/products");
+     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -203,7 +207,7 @@ const AboutUs = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button className="bg-brand-primary-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-brand-primary-600"
-              onClick={() => navigate("/products")}
+              onClick={handleClick}
 >
                 Shop Now
               </button>

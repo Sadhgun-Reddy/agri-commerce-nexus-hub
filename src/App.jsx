@@ -23,6 +23,7 @@ import TermsOfService from './pages/TermsOfService';
 import ReturnPolicy from './pages/ReturnPolicy';
 import CookiePolicy from './pages/CookiePolicy';
 import AboutUs from './pages/Aboutus';
+import ScrollToTop from "./pages/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
         <Toaster />
         <Sonner position="top-right" richColors closeButton />
         <BrowserRouter>
+        <ScrollToTop smooth={false} />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<HomePage />} />
