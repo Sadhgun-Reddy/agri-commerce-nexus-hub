@@ -162,51 +162,34 @@ const FeaturedProducts = () => {
       const normList = list.map((b) => normalize(b));
       return targets.some((t) => normList.includes(normalize(t)));
     };
-    const fetchFeatured = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await axios.get(URLS.Products);
-        if (!isMounted) return;
-        const all = Array.isArray(res.data) ? res.data : (res.data?.products || []);
-        const rawBest = all.filter((p) => hasBadge(p, ['best seller', 'bestseller']));
-        const rawNew = all.filter((p) => hasBadge(p, ['new', 'new arrival', 'newarrival']));
+  const fetchFeatured = async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await axios.get(URLS.Products);
+    const allProducts = Array.isArray(res.data) ? res.data : res.data?.data || [];
 
-        // De-duplicate within each list
-        const seenBest = new Set();
-        const best = [];
-        for (const p of rawBest) {
-          const k = getKey(p);
-          if (!seenBest.has(k)) {
-            seenBest.add(k);
-            best.push(p);
-          }
-          if (best.length >= 8) break;
-        }
+    // Best Sellers: any product where badge includes "best seller" (case-insensitive)
+    const best = allProducts.filter(p => 
+      p.badge && p.badge.toLowerCase().includes('best seller')
+    );
 
-        // Exclude items already in best from new arrivals
-        const seenNew = new Set(seenBest);
-        const newest = [];
-        for (const p of rawNew) {
-          const k = getKey(p);
-          if (!seenNew.has(k)) {
-            seenNew.add(k);
-            newest.push(p);
-          }
-          if (newest.length >= 8) break;
-        }
+    // New Arrivals: badge includes "new" (excluding best sellers)
+    const newArrivals = allProducts.filter(p => 
+      p.badge && p.badge.toLowerCase().includes('new') && !best.includes(p)
+    );
 
-        setBestSellers(best);
-        setNewArrivals(newest);
-      } catch (err) {
-        if (!isMounted) return;
-        setError(err.response?.data?.message || err.message || 'Failed to load featured products');
-        setBestSellers([]);
-        setNewArrivals([]);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
+    setBestSellers(best.slice(0, 8));       // Limit to 8
+    setNewArrivals(newArrivals.slice(0, 8)); // Limit to 8
+  } catch (err) {
+    setError(err.message || 'Failed to load products');
+    setBestSellers([]);
+    setNewArrivals([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
     fetchFeatured();
     return () => { isMounted = false; };
   }, []);
