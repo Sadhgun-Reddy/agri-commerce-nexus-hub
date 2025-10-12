@@ -27,6 +27,8 @@ const ProductsPage = () => {
   const searchFromUrl = searchParams.get('search') || '';
   const categoryFromUrl = searchParams.get('category') || '';
 
+  console.log("Products data from context:", products);
+
   useEffect(() => {
     if (categoryFromUrl && !selectedCategories.includes(categoryFromUrl)) {
       setSelectedCategories([categoryFromUrl]);
@@ -60,56 +62,51 @@ const ProductsPage = () => {
     'Lawn/Stubble Movers'
   ];
 
-  const filteredProducts = useMemo(() => {
-    if (!products || products.length === 0) return [];
+const productsData = products?.data || []; // ensures array exists
 
-    let filtered = products.filter(product => {
-      const productName = (product.name || product.productName || '').toLowerCase();
-      const productCategory = product.category || '';
-      const productCategories = product.categories || (productCategory ? [productCategory] : []);
-      const productPrice = product.price || 0;
+console.log("Products data array:", productsData);
 
-      // Price filter
-      if (productPrice < priceRange[0] || productPrice > priceRange[1]) return false;
+const filteredProducts = useMemo(() => {
+  if (!productsData || productsData.length === 0) return [];
 
-      // Category filter
-      if (selectedCategories.length > 0 && !productCategories.some(cat => selectedCategories.includes(cat))) return false;
+  return productsData.filter(product => {
+    const productName = (product.productName || '').toLowerCase();
+    const productCategory = product.category || '';
+    const productCategories = [productCategory];
+    const productPrice = product.price || 0;
 
-      // Stock filter
-      if (inStockOnly && (!product.inStock || (product.quantity || 0) <= 0)) return false;
+    // Price filter
+    if (productPrice < priceRange[0] || productPrice > priceRange[1]) return false;
 
-      // Search filter
-      const searchTerm = (searchFromUrl || searchQuery).toLowerCase();
-      if (searchTerm) {
-        return (
-          productName.includes(searchTerm) ||
-          productCategories.some(cat => cat.toLowerCase().includes(searchTerm))
-        );
-      }
+    // Category filter
+    if (selectedCategories.length > 0 && !productCategories.some(cat => selectedCategories.includes(cat))) return false;
 
-      return true;
-    });
+    // Stock filter
+    if (inStockOnly && (!product.inStock || (product.quantity || 0) <= 0)) return false;
+    const searchTerm = (searchQuery || searchFromUrl || '').toLowerCase().trim();
+    
+    // Search filter
+   if (searchTerm) {
+  if (
+    !productName.includes(searchTerm) &&
+    !productCategories.some(cat => cat.toLowerCase().includes(searchTerm))
+  ) return false;
+}
 
-    // Sort
+
+
+    return true;
+  }).sort((a, b) => {
     switch (sortBy) {
-      case 'price-low':
-        filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
-        break;
-      case 'price-high':
-        filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
-        break;
-      case 'rating':
-        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'newest':
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        break;
-      default:
-        break;
+      case 'price-low': return (a.price || 0) - (b.price || 0);
+      case 'price-high': return (b.price || 0) - (a.price || 0);
+      case 'rating': return (b.rating || 0) - (a.rating || 0);
+      case 'newest': return new Date(b.createdAt) - new Date(a.createdAt);
+      default: return 0;
     }
+  });
+}, [productsData, priceRange, selectedCategories, inStockOnly, sortBy, searchQuery, searchFromUrl]);
 
-    return filtered;
-  }, [products, priceRange, selectedCategories, inStockOnly, sortBy, searchQuery, searchFromUrl]);
 
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
   const startIndex = (currentPage - 1) * productsPerPage;

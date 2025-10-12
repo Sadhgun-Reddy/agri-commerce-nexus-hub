@@ -51,6 +51,11 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         const data = await response.json();
 
         if (response.ok) {
+
+          const { token, userId } = data.data;
+          // console.log("Sign up successful, received token:", token, "and userId:", userId);
+          localStorage.setItem('authToken', token);
+          localStorage.setItem('user', JSON.stringify({ _id: userId }));
           toast({
             title: "Account created!",
             description: "Your account has been created successfully. Please sign in now.",
