@@ -19,5 +19,7 @@ export const URLS = {
     CartAdd: Url + "api/cart/add",
     CartUpdate: Url + "api/cart/update",
     CartGet: Url + "api/cart",
-    CartRemove: (productId) => Url + `api/cart/remove/${productId}`
+    CartRemove: (productId) => Url + `api/cart/remove/${productId}`,
+
+    SendMail:Url+ "api/contact"
 } 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
 import Header from '@/components/layout/Header.jsx';
 import Footer from '@/components/layout/Footer.jsx';
@@ -7,30 +8,55 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { useToast } from '@/hooks/use-toast.js';
+import { URLS } from '@/Urls.jsx';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     subject: '',
     message: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock form submission
-    toast({
-      title: "Message Sent!",
-      description: "We'll get back to you within 24 hours.",
-    });
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setIsSubmitting(true);
+
+    try {
+      const response = await axios.post(URLS.SendMail, formData, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        toast({
+          title: "✅ Message Sent!",
+          description: "We'll get back to you within 24 hours.",
+          variant: "success"
+        });
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      } else {
+        throw new Error('Unexpected response status');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to send message. Please try again.';
+      toast({
+        title: "❌ Failed to Send Message",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
+
       <main className="flex-1">
         <div className="container mx-auto px-4 py-16">
           <div className="text-center mb-12">
@@ -57,7 +83,7 @@ const ContactPage = () => {
                       <p className="text-grey-600">+91 98765 43210</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-12 bg-brand-primary-100 rounded-12 flex items-center justify-center">
                       <Mail className="w-6 h-6 text-brand-primary-500" />
@@ -67,7 +93,7 @@ const ContactPage = () => {
                       <p className="text-grey-600">support@agri-commerce.com</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-4">
                     <div className="w-12 h-12 bg-brand-primary-100 rounded-12 flex items-center justify-center">
                       <MapPin className="w-6 h-6 text-brand-primary-500" />
@@ -114,9 +140,7 @@ const ContactPage = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-grey-700 mb-2">
-                        Your Name
-                      </label>
+                      <label className="block text-sm font-medium text-grey-700 mb-2">Your Name</label>
                       <Input
                         value={formData.name}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -125,9 +149,7 @@ const ContactPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-grey-700 mb-2">
-                        Email Address
-                      </label>
+                      <label className="block text-sm font-medium text-grey-700 mb-2">Email Address</label>
                       <Input
                         type="email"
                         value={formData.email}
@@ -137,11 +159,19 @@ const ContactPage = () => {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-grey-700 mb-2">
-                      Subject
-                    </label>
+                    <label className="block text-sm font-medium text-grey-700 mb-2">Phone</label>
+                    <Input
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="Your phone number"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-grey-700 mb-2">Subject</label>
                     <Input
                       value={formData.subject}
                       onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
@@ -149,11 +179,9 @@ const ContactPage = () => {
                       required
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-grey-700 mb-2">
-                      Message
-                    </label>
+                    <label className="block text-sm font-medium text-grey-700 mb-2">Message</label>
                     <Textarea
                       value={formData.message}
                       onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
@@ -162,10 +190,10 @@ const ContactPage = () => {
                       required
                     />
                   </div>
-                  
-                  <Button type="submit" className="w-full" size="lg">
+
+                  <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
                     <Send className="w-4 h-4 mr-2" />
-                    Send Message
+                    {isSubmitting ? 'Sending...' : 'Send Message'}
                   </Button>
                 </form>
               </CardContent>
