@@ -29,9 +29,10 @@ const ProductsPage = () => {
 
   // Debug logging
   useEffect(() => {
-    console.log('📦 Products Data:', products);
-    console.log('✅ Is Array:', Array.isArray(products));
-    console.log('📊 Products Count:', products?.length || 0);
+    // console.log('📦 Products Data:', products);
+    // console.log('✅ Is Array:', Array.isArray(products));
+    // console.log('📊 Products Count:', products?.length || 0);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [products]);
 
   useEffect(() => {
