@@ -307,58 +307,70 @@ const removeFromWishlist = async (productId) => {
 
 
 
-  const toggleWishlist = async (product) => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setPendingWishlistProduct(product);
-      localStorage.setItem('pendingRedirectToWishlist', '1');
-      openLoginDialog();
-      return;
+// Call this on product wishlist toggle
+const toggleWishlist = async (product) => {
+  const token = localStorage.getItem('authToken');
+  
+  if (!token) {
+    // Store pending product
+    localStorage.setItem('pendingWishlistProduct', JSON.stringify(product));
+    localStorage.setItem('pendingRedirectToWishlist', '1');
+    openLoginDialog(); // open login modal
+    return;
+  }
+
+  await handleWishlist(product, token);
+};
+
+// Function to handle actual wishlist add/remove
+const handleWishlist = async (product, token) => {
+  const productId = product._id || product.id;
+  const key = product.sku || product.id || product._id;
+
+  if (!productId) {
+    toast({ title: 'Missing product id', description: 'Unable to add this product to wishlist.', variant: 'destructive' });
+    return;
+  }
+
+  try {
+    if (isInWishlist(key)) {
+      await axios.delete(`${URLS.WishlistRemove}/${productId}`, { headers: { Authorization: `Bearer ${token}` } });
+      removeFromWishlist(key);
+      await loadWishlistFromServer(token);
+      toast({ title: 'Removed from wishlist', variant: 'destructive' });
+    } else {
+      await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      addToWishlist(product);
+      await loadWishlistFromServer(token);
+      window.dispatchEvent(new Event('wishlist-updated'));
+      toast({ title: 'Added to wishlist', variant: 'success' });
     }
-    try {
-      const productId = product._id || product.id;
-      const key = product.sku || product.id || product._id;
-      if (!productId) {
-        toast({ title: 'Missing product id', description: 'Unable to add this product to wishlist.', variant: 'destructive' });
-        return;
-      }
-      if (isInWishlist(key)) {
-        try {
-          await axios.delete(`${URLS.WishlistRemove}/${productId}`,
-             { headers: { Authorization: `Bearer ${token}` } });
-        } catch {
-          // ignore backend remove error
-        }
-          removeFromWishlist(key);
-         await loadWishlistFromServer(token);
-        toast({ title: 'Removed from wishlist', variant: 'destructive' });
-      } else {
-        try {
-          await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-          addToWishlist(product);
-          toast({ title: 'Added to wishlist', variant: 'success' });
-           await loadWishlistFromServer(token);
-        window.dispatchEvent(new Event('wishlist-updated'));
-        } catch (err) {
-          const statusAdd = err.response?.status;
-          const msg = err.response?.data?.message?.toString().toLowerCase();
-          if (statusAdd === 400 && msg && msg.includes('already')) {
-            addToWishlist(product);
-            toast({ title: 'Already in wishlist', description: 'This item is already saved.', variant: 'success' });
-          } else {
-            throw err;
-          }
-        }
-      }
-    } catch (error) {
-      const status = error.response?.status;
-      if (status === 401) {
-        toast({ title: 'Sign in required', description: 'Please sign in to use wishlist.', variant: 'destructive' });
-      } else {
-        toast({ title: 'Wishlist error', description: error.response?.data?.message || error.message, variant: 'destructive' });
-      }
+  } catch (err) {
+    const status = err.response?.status;
+    const msg = err.response?.data?.message?.toLowerCase();
+    if (status === 400 && msg.includes('already')) {
+      addToWishlist(product);
+      toast({ title: 'Already in wishlist', variant: 'success' });
+    } else if (status === 401) {
+      toast({ title: 'Sign in required', description: 'Please sign in to use wishlist.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Wishlist error', description: err.response?.data?.message || err.message, variant: 'destructive' });
     }
-  };
+  }
+};
+
+// --- In your Login Success Handler ---
+const onLoginSuccess = async (token) => {
+  // Check for pending wishlist product
+  const pendingProductStr = localStorage.getItem('pendingWishlistProduct');
+  if (pendingProductStr) {
+    const pendingProduct = JSON.parse(pendingProductStr);
+    await handleWishlist(pendingProduct, token);
+    localStorage.removeItem('pendingWishlistProduct');
+    localStorage.removeItem('pendingRedirectToWishlist');
+    navigate('/wishlist'); // navigate to wishlist page immediately
+  }
+};
 
 const updateQuantity = async (productId, action) => {
   const token = localStorage.getItem("authToken");
