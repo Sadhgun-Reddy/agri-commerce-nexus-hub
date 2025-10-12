@@ -199,8 +199,8 @@ const mapCartProduct = (item) => ({
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = res.data;
-      const products = Array.isArray(data?.products)
-        ? data.products
+      const products = Array.isArray(res.data?.data?.products)
+        ? res.data.data.products
         : (Array.isArray(data?.wishlist?.products) ? data.wishlist.products : []);
 
       if (!products.length || typeof products[0] === 'string') {
@@ -277,8 +277,8 @@ const addToCart = async (product) => {
     const res = await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    console.log(res.data);
-    loadWishlistFromServer(token, userId); // reload wishlist
+    // console.log(res.data);
+     loadWishlistFromServer(token); // reload wishlist
   } catch (err) {
     console.error("Add wishlist error:", err.response?.data || err.message);
   }
@@ -287,7 +287,7 @@ const addToCart = async (product) => {
 
 
 const removeFromWishlist = async (productId) => {
-  const token = localStorage.getItem("access_token");
+  const token = localStorage.getItem("authToken");
 
   // console.log("Removing product from wishlist:", productId);
   // console.log("Using token:", token);

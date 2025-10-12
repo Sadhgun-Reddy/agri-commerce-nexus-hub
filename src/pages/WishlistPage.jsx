@@ -24,7 +24,7 @@ const WishlistPage = () => {
   const { wishlistItems, setWishlistItems, loadWishlistFromServer, addToCart,removeFromWishlist } = useApp(); // <- context functions
   const [loading, setLoading] = useState(false);
 
-  const token = localStorage.getItem("access_token");
+  const token = localStorage.getItem("authToken");
   
   const userId = localStorage.getItem("userId");
 
