@@ -151,6 +151,8 @@ const mapCartProduct = (item) => ({
 
   // Fetch user details using token
   const fetchUserDetails = async (token) => {
+
+    console.log("Fetching user details with token:", token);
     try {
       const response = await axios.get(`${URLS.GetProfile}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -401,10 +403,11 @@ const updateQuantity = async (productId, action) => {
   const openLoginDialog = () => setIsLoginDialogOpen(true);
   const closeLoginDialog = () => setIsLoginDialogOpen(false);
 
-  const login = async (email, password, token) => {
-    try {
-      let actualToken = token;
+const login = async (email, password) => {
+  try {
+    let token = localStorage.getItem('authToken');
 
+<<<<<<< HEAD
       // If no token provided, authenticate with credentials
       if (!actualToken) {
         const response = await axios.post(`${API_BASE_URL}/signin`, {
@@ -442,8 +445,47 @@ const updateQuantity = async (productId, action) => {
       clearAuthData();
       const errorMessage = error.response?.data?.message || 'Login failed';
       throw new Error(errorMessage);
+=======
+    if (!token) {
+      const response = await axios.post(`${API_BASE_URL}/signin`, { email, password });
+      token = response.data.data.token; // <- use correct path based on your API response
+      console.log("Login API response:", response.data);
+      localStorage.setItem('authToken', token);
+>>>>>>> f3d42859740c6a7a8535a6896ad8f729998c61e5
     }
-  };
+
+    if (token) {
+      const fetchedUser = await fetchUserDetails(token); // now token is correct
+      console.log("Fetched user after login:", fetchedUser);
+
+      if (fetchedUser?.id) {
+        await loadWishlistFromServer(token, fetchedUser.id);
+        await loadCartFromServer(token);
+      }
+
+      // Handle pending wishlist product
+      if (pendingWishlistProduct) {
+        const productId = pendingWishlistProduct._id || pendingWishlistProduct.id;
+        if (productId) {
+          await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          addToWishlist(pendingWishlistProduct);
+        }
+        setPendingWishlistProduct(null);
+      }
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Login error:', error);
+    clearAuthData();
+    const errorMessage = error.response?.data?.message || 'Login failed';
+    throw new Error(errorMessage);
+  }
+};
 
   const loginWithGoogle = async () => {
     try {
