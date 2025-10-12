@@ -75,10 +75,18 @@ const WishlistPage = () => {
                     <ProductCard product={product} />
                     <div className="absolute top-2 right-2 flex flex-col gap-2">
                       {computedInStock && (
-                        <Button variant="outline" size="sm" onClick={() => addToCart(product)}>
+                      <div className="absolute top-3 right-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addToCart(product)}
+                          className="bg-brand-primary-50 hover:bg-brand-primary-100 text-brand-primary-700 border-brand-primary-200"
+                        >
                           Add to Cart
                         </Button>
-                      )}
+                      </div>
+                    )}
+
                       
                     </div>
                   </div>
