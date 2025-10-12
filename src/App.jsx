@@ -18,6 +18,10 @@ import AdminPage from "./pages/AdminPage";
 import OrdersPage from "./pages/OrdersPage";
 import WishlistPage from "./pages/WishlistPage";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from './pages/TermsOfService';
+import ReturnPolicy from './pages/ReturnPolicy';
+import CookiePolicy from './pages/CookiePolicy';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +40,10 @@ const App = () => (
             <Route path="/about" element={<HomePage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/termofservice" element={<TermsOfService />} />
+             <Route path="/returnpolicy" element={<ReturnPolicy />} />
+              <Route path="/cookiepolicy" element={<CookiePolicy />} />
             
             {/* Protected Routes - Require Authentication */}
             <Route 
