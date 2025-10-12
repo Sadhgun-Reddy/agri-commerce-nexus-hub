@@ -27,6 +27,13 @@ const ProductsPage = () => {
   const searchFromUrl = searchParams.get('search') || '';
   const categoryFromUrl = searchParams.get('category') || '';
 
+  // ✅ Debug logging to verify products structure
+  useEffect(() => {
+    console.log('📦 Products Data:', products);
+    console.log('✅ Is Array:', Array.isArray(products));
+    console.log('📊 Products Count:', products?.length || 0);
+  }, [products]);
+
   useEffect(() => {
     if (categoryFromUrl && !selectedCategories.includes(categoryFromUrl)) {
       setSelectedCategories([categoryFromUrl]);
@@ -60,57 +67,91 @@ const ProductsPage = () => {
     'Lawn/Stubble Movers'
   ];
 
+  // ✅ FIXED: Enhanced filtering with array validation and safety checks
   const filteredProducts = useMemo(() => {
-    if (!products || products.length === 0) return [];
+    // ✅ Validate products is an array
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      console.warn('⚠️ Products is not a valid array:', products);
+      return [];
+    }
 
     let filtered = products.filter(product => {
+      // ✅ Safe property access with fallbacks
       const productName = (product.name || product.productName || '').toLowerCase();
       const productCategory = product.category || '';
-      const productCategories = product.categories || (productCategory ? [productCategory] : []);
-      const productPrice = product.price || 0;
+      const productCategories = Array.isArray(product.categories) 
+        ? product.categories 
+        : (productCategory ? [productCategory] : []);
+      const productPrice = Number(product.price) || 0;
 
       // Price filter
       if (productPrice < priceRange[0] || productPrice > priceRange[1]) return false;
 
       // Category filter
-      if (selectedCategories.length > 0 && !productCategories.some(cat => selectedCategories.includes(cat))) return false;
+      if (selectedCategories.length > 0) {
+        const hasMatchingCategory = productCategories.some(cat => 
+          selectedCategories.includes(cat)
+        );
+        if (!hasMatchingCategory) return false;
+      }
 
       // Stock filter
-      if (inStockOnly && (!product.inStock || (product.quantity || 0) <= 0)) return false;
+      if (inStockOnly) {
+        const isInStock = product.inStock !== undefined 
+          ? product.inStock 
+          : (product.quantity || 0) > 0;
+        if (!isInStock) return false;
+      }
 
       // Search filter
-      const searchTerm = (searchFromUrl || searchQuery).toLowerCase();
+      const searchTerm = (searchFromUrl || searchQuery).toLowerCase().trim();
       if (searchTerm) {
-        return (
-          productName.includes(searchTerm) ||
-          productCategories.some(cat => cat.toLowerCase().includes(searchTerm))
+        const matchesName = productName.includes(searchTerm);
+        const matchesCategory = productCategories.some(cat => 
+          cat.toLowerCase().includes(searchTerm)
         );
+        const matchesBrand = (product.brand || '').toLowerCase().includes(searchTerm);
+        const matchesSKU = (product.sku || product.SKU || '').toLowerCase().includes(searchTerm);
+        
+        return matchesName || matchesCategory || matchesBrand || matchesSKU;
       }
 
       return true;
     });
 
-    // Sort
-    switch (sortBy) {
-      case 'price-low':
-        filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
-        break;
-      case 'price-high':
-        filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
-        break;
-      case 'rating':
-        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'newest':
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        break;
-      default:
-        break;
+    // ✅ Sorting with proper error handling
+    try {
+      switch (sortBy) {
+        case 'price-low':
+          filtered.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+          break;
+        case 'price-high':
+          filtered.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+          break;
+        case 'rating':
+          filtered.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
+          break;
+        case 'newest':
+          filtered.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return dateB - dateA;
+          });
+          break;
+        case 'featured':
+        default:
+          // Keep original order for featured
+          break;
+      }
+    } catch (sortError) {
+      console.error('❌ Error sorting products:', sortError);
     }
 
+    console.log(`✅ Filtered ${filtered.length} products from ${products.length} total`);
     return filtered;
   }, [products, priceRange, selectedCategories, inStockOnly, sortBy, searchQuery, searchFromUrl]);
 
+  // ✅ Pagination calculations
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
   const startIndex = (currentPage - 1) * productsPerPage;
   const paginatedProducts = filteredProducts.slice(startIndex, startIndex + productsPerPage);
@@ -128,6 +169,7 @@ const ProductsPage = () => {
     setPriceRange([0, 100000]);
     setSelectedCategories([]);
     setInStockOnly(false);
+    setSortBy('featured');
     setCurrentPage(1);
   };
 
@@ -222,6 +264,7 @@ const ProductsPage = () => {
     </div>
   );
 
+  // ✅ Loading State
   if (isProductsLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-brand-primary-50 to-white">
@@ -234,6 +277,7 @@ const ProductsPage = () => {
     );
   }
 
+  // ✅ Error State
   if (productsError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -357,7 +401,7 @@ const ProductsPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                     {paginatedProducts.map((product, index) => (
                       <div
-                        key={product._id || product.id}
+                        key={product._id || product.id || `product-${index}`}
                         className="animate-fade-in"
                         style={{ animationDelay: `${index * 50}ms` }}
                       >

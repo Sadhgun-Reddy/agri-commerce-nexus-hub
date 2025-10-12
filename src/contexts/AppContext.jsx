@@ -46,7 +46,7 @@ export const AppProvider = ({ children }) => {
     setProductsError(null);
     try {
       const response = await axios.get(`${URLS.Products}`);
-      setProducts(response.data);
+      setProducts(response.data.data);
     } catch (error) {
       console.error("Error fetching products:", error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load products';
@@ -156,8 +156,8 @@ const mapCartProduct = (item) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      const userData = response.data.user;
-      const userCart = response.data.cart || [];
+      const userData = response.data.data.user;
+      const userCart = response.data.data.cart || [];
       
       // Store user data in localStorage
       storeUserData(userData, userCart);
@@ -182,7 +182,7 @@ const mapCartProduct = (item) => ({
       console.error("Profile fetch error:", error);
       if (
         error.response &&
-        (error.response.status === 401 || error.response.data.message === "Invalid or expired token")
+        (error.response.status === 401 || error.response.data.data.message === "Invalid or expired token")
       ) {
         logout();
       }
@@ -411,8 +411,8 @@ const updateQuantity = async (productId, action) => {
           email,
           password
         });
-        console.log("Login API response:", response.data);
-        actualToken = response.data.token;
+        console.log("Login API response:", response.data.data);
+        actualToken = response.data.data.token;
       }
 
       if (actualToken) {
