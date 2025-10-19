@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, ShoppingCart, Users, Settings, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Package, ShoppingCart, Users, Settings, Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header.jsx';
 import Footer from '@/components/layout/Footer.jsx';
@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import ProductForm from '@/components/admin/ProductForm.jsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -19,17 +20,23 @@ const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('orders');
   const [editingProduct, setEditingProduct] = useState(null);
   const [showProductForm, setShowProductForm] = useState(false);
-  const { 
-    getAllOrders, 
-    updateOrderStatus, 
-    products, 
-    updateProduct, 
-    deleteProduct, 
-    addProduct 
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    getAllOrders,
+    updateOrderStatus,
+    products,
+    updateProduct,
+    deleteProduct,
+    addProduct,
+    fetchProducts
   } = useApp();
+
   const { toast } = useToast();
 
-  // Additional security check
+  // Security check
   useEffect(() => {
     if (!isAuthLoading && (!user || user.role !== 'admin')) {
       toast({
@@ -56,30 +63,48 @@ const AdminPage = () => {
     setShowProductForm(true);
   };
 
-  const handleProductDelete = (id) => {
-    deleteProduct(id);
-    toast({
-      title: "Product Deleted",
-      description: "Product has been removed successfully",
-    });
+  const handleProductDeleteClick = (product) => {
+    setProductToDelete(product);
+    setDeleteDialogOpen(true);
   };
 
-  const handleProductSave = (productData) => {
-    if (editingProduct) {
-      updateProduct({ ...productData, id: editingProduct.id });
-      toast({
-        title: "Product Updated",
-        description: "Product has been updated successfully",
-      });
-    } else {
-      addProduct(productData);
-      toast({
-        title: "Product Added",
-        description: "New product has been added successfully",
-      });
+  const handleProductDeleteConfirm = async () => {
+    if (!productToDelete) return;
+
+    setIsSubmitting(true);
+    try {
+      await deleteProduct(productToDelete._id || productToDelete.id);
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+    } catch (error) {
+      console.error('Delete error:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-    setShowProductForm(false);
-    setEditingProduct(null);
+  };
+
+  const handleProductSave = async (productData) => {
+    setIsSubmitting(true);
+    
+    try {
+      if (editingProduct) {
+        // Update existing product
+        await updateProduct(editingProduct._id || editingProduct.id, productData);
+      } else {
+        // Add new product
+        await addProduct(productData);
+      }
+      
+      setShowProductForm(false);
+      setEditingProduct(null);
+      
+      // Refresh products list
+      await fetchProducts();
+    } catch (error) {
+      console.error('Save error:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatPrice = (price) => {
@@ -110,7 +135,7 @@ const AdminPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-grey-50">
       <Header />
       
       <main className="flex-1">
@@ -122,7 +147,7 @@ const AdminPage = () => {
                 <p className="text-grey-600">Manage your products, orders, and customers</p>
               </div>
               {user && (
-                <Badge variant="default" className="text-sm">
+                <Badge variant="default" className="text-sm bg-brand-primary-500">
                   Admin: {user.name}
                 </Badge>
               )}
@@ -131,30 +156,30 @@ const AdminPage = () => {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card>
+            <Card className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                <ShoppingCart className="h-4 w-4 text-brand-primary-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{orders.length}</div>
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
+                <Package className="h-4 w-4 text-brand-primary-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{products.length}</div>
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-                <Settings className="h-4 w-4 text-muted-foreground" />
+                <Settings className="h-4 w-4 text-brand-primary-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -163,10 +188,10 @@ const AdminPage = () => {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Customers</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-brand-primary-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -181,12 +206,14 @@ const AdminPage = () => {
             <Button
               variant={activeTab === 'orders' ? 'default' : 'outline'}
               onClick={() => setActiveTab('orders')}
+              className={activeTab === 'orders' ? 'bg-brand-primary-500 hover:bg-brand-primary-600' : ''}
             >
               Orders
             </Button>
             <Button
               variant={activeTab === 'products' ? 'default' : 'outline'}
               onClick={() => setActiveTab('products')}
+              className={activeTab === 'products' ? 'bg-brand-primary-500 hover:bg-brand-primary-600' : ''}
             >
               Products
             </Button>
@@ -199,52 +226,61 @@ const AdminPage = () => {
                 <CardTitle>Order Management</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.id}</TableCell>
-                        <TableCell>{order.shippingAddress.name}</TableCell>
-                        <TableCell>{formatPrice(order.total)}</TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(order.status)}>
-                            {order.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={order.status}
-                            onValueChange={(value) => handleStatusUpdate(order.id, value)}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="processing">Processing</SelectItem>
-                              <SelectItem value="shipped">Shipped</SelectItem>
-                              <SelectItem value="delivered">Delivered</SelectItem>
-                              <SelectItem value="cancelled">Cancelled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                {orders.length === 0 ? (
+                  <div className="text-center py-12 text-grey-500">
+                    <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-grey-300" />
+                    <p>No orders yet</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order ID</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {orders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">{order.id}</TableCell>
+                            <TableCell>{order.shippingAddress?.name || 'N/A'}</TableCell>
+                            <TableCell>{formatPrice(order.total)}</TableCell>
+                            <TableCell>
+                              <Badge className={getStatusColor(order.status)}>
+                                {order.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {new Date(order.createdAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={order.status}
+                                onValueChange={(value) => handleStatusUpdate(order.id, value)}
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="shipped">Shipped</SelectItem>
+                                  <SelectItem value="delivered">Delivered</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -256,88 +292,151 @@ const AdminPage = () => {
                 <CardTitle>Product Management</CardTitle>
                 <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => {
-                      setEditingProduct(null);
-                      setShowProductForm(true);
-                    }}>
+                    <Button 
+                      onClick={() => {
+                        setEditingProduct(null);
+                        setShowProductForm(true);
+                      }}
+                      className="bg-brand-primary-500 hover:bg-brand-primary-600"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Product
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-w-3xl max-h-[90vh]">
                     <DialogHeader>
                       <DialogTitle>
                         {editingProduct ? 'Edit Product' : 'Add New Product'}
                       </DialogTitle>
+                      <DialogDescription>
+                        {editingProduct 
+                          ? 'Update product information and images' 
+                          : 'Fill in the product details and upload images'}
+                      </DialogDescription>
                     </DialogHeader>
-                    <ProductForm
-                      product={editingProduct}
-                      onSave={handleProductSave}
-                      onCancel={() => {
-                        setShowProductForm(false);
-                        setEditingProduct(null);
-                      }}
-                    />
+                    {isSubmitting ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-brand-primary-500" />
+                        <span className="ml-3 text-grey-600">
+                          {editingProduct ? 'Updating...' : 'Adding...'}
+                        </span>
+                      </div>
+                    ) : (
+                      <ProductForm
+                        product={editingProduct}
+                        onSave={handleProductSave}
+                        onCancel={() => {
+                          setShowProductForm(false);
+                          setEditingProduct(null);
+                        }}
+                      />
+                    )}
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Image</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Stock</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {products.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell>
-                          <img 
-                            src={product.image || (product.images && product.images[0])} 
-                            alt={product.name}
-                            className="w-12 h-12 object-cover rounded"
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.category}</TableCell>
-                        <TableCell>{formatPrice(product.price)}</TableCell>
-                        <TableCell>
-                          <Badge variant={product.inStock ? 'default' : 'destructive'}>
-                            {product.inStock ? 'In Stock' : 'Out of Stock'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleProductEdit(product)}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleProductDelete(product.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                {products.length === 0 ? (
+                  <div className="text-center py-12 text-grey-500">
+                    <Package className="w-12 h-12 mx-auto mb-3 text-grey-300" />
+                    <p>No products available</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Image</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Stock</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {products.map((product) => (
+                          <TableRow key={product._id || product.id}>
+                            <TableCell>
+                              <img
+                                src={product.image || (product.images && product.images[0]) || '/placeholder.jpg'}
+                                alt={product.name || product.productName}
+                                className="w-12 h-12 object-cover rounded border border-grey-200"
+                                onError={(e) => {
+                                  e.target.src = '/placeholder.jpg';
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {product.name || product.productName}
+                            </TableCell>
+                            <TableCell>{product.category}</TableCell>
+                            <TableCell>{formatPrice(product.price)}</TableCell>
+                            <TableCell>
+                              <Badge variant={product.inStock ? 'default' : 'destructive'}>
+                                {product.inStock ? 'In Stock' : 'Out of Stock'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleProductEdit(product)}
+                                  className="hover:bg-brand-primary-50"
+                                >
+                                  <Edit2 className="w-4 h-4 text-brand-primary-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleProductDeleteClick(product)}
+                                  className="hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
         </div>
       </main>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the product "{productToDelete?.name || productToDelete?.productName}".
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleProductDeleteConfirm}
+              disabled={isSubmitting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       <Footer />
     </div>

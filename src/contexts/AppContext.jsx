@@ -17,7 +17,6 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }) => {
- 
   const [wishlistItems, setWishlistItems] = useState([]);
   const [user, setUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,17 +39,34 @@ export const AppProvider = ({ children }) => {
     }
   }, [wishlistItems, user]);
 
-  // Fetch products from API
+  // ✅ Fetch products from API
   const fetchProducts = async () => {
     setIsProductsLoading(true);
     setProductsError(null);
+    
     try {
       const response = await axios.get(`${URLS.Products}`);
-      setProducts(response.data.data);
+      
+      // Extract nested data array
+      const productsData = response.data?.data || response.data || [];
+      
+      // Validate and normalize
+      const normalizedProducts = Array.isArray(productsData) ? productsData.map(product => ({
+        ...product,
+        id: product._id || product.id,
+        name: product.productName || product.name,
+        image: product.images?.[0] || product.image || '',
+        sku: product.SKU || product.sku || '',
+      })) : [];
+      
+      setProducts(normalizedProducts);
+      console.log(`✅ Loaded ${normalizedProducts.length} products`);
+      
     } catch (error) {
-      console.error("Error fetching products:", error);
+      console.error("❌ Error fetching products:", error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load products';
       setProductsError(errorMessage);
+      setProducts([]);
     } finally {
       setIsProductsLoading(false);
     }
@@ -59,7 +75,6 @@ export const AppProvider = ({ children }) => {
   // Initialize auth state and fetch products on app load
   useEffect(() => {
     const initializeApp = async () => {
-      // Initialize Auth
       const token = localStorage.getItem('authToken');
       if (token) {
         try {
@@ -69,13 +84,10 @@ export const AppProvider = ({ children }) => {
           }
         } catch (error) {
           console.error('Failed to initialize auth:', error);
-          // Clear invalid token and user data
           clearAuthData();
         }
       }
       setIsAuthLoading(false);
-
-      // Fetch Products
       await fetchProducts();
     };
 
@@ -93,68 +105,50 @@ export const AppProvider = ({ children }) => {
 
   // Helper function to store user data in localStorage
   const storeUserData = (userData, cart) => {
-    if (userData.name) {
-      localStorage.setItem('userName', userData.name);
-    }
-    if (userData.email) {
-      localStorage.setItem('userEmail', userData.email);
-    }
-    if (userData.role) {
-      localStorage.setItem('userRole', userData.role);
-    }
-    if (cart) {
-      localStorage.setItem('userCart', JSON.stringify(cart));
+    if (userData.name) localStorage.setItem('userName', userData.name);
+    if (userData.email) localStorage.setItem('userEmail', userData.email);
+    if (userData.role) localStorage.setItem('userRole', userData.role);
+    if (cart) localStorage.setItem('userCart', JSON.stringify(cart));
+  };
+
+  const loadCartFromServer = async (token) => {
+    try {
+      const res = await axios.get(URLS.CartGet, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = res.data.data.items;
+
+      if (Array.isArray(data)) {
+        setCartItems(data.map(mapCartItem));
+      } else {
+        setCartItems([]);
+      }
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      setCartItems([]);
     }
   };
 
-const loadCartFromServer = async (token) => {
-  try {
-    const res = await axios.get(URLS.CartGet, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = res.data.data.items; // this is already an array
-    console.log("Cart items from server:", data);
-
-    if (Array.isArray(data)) {
-      setCartItems(data.map(mapCartItem)); // map each item if needed
-    } else {
-      setCartItems([]);
-    }
-  } catch (error) {
-    console.error('Error fetching cart:', error);
-    setCartItems([]);
-  }
-};
-
-
-
-
-const mapCartItem = (item) => ({
+  const mapCartItem = (item) => ({
     _id: item._id,
     quantity: item.quantity,
     product: item.product
   });
 
-
-  // AppContext.jsx
-
-const mapCartProduct = (item) => ({
-  _id: item._id,
-  quantity: item.quantity,
-  product: {
-    _id: typeof item.product === 'string' ? item.product : item.product._id,
-    name: item.product?.name || item.productName || 'Unknown',
-    price: item.product?.price || 0,
-    images: item.product?.images || [],
-    sku: item.product?.SKU || item.product?.sku || 'N/A',
-  },
-});
-
+  const mapCartProduct = (item) => ({
+    _id: item._id,
+    quantity: item.quantity,
+    product: {
+      _id: typeof item.product === 'string' ? item.product : item.product._id,
+      name: item.product?.name || item.productName || 'Unknown',
+      price: item.product?.price || 0,
+      images: item.product?.images || [],
+      sku: item.product?.SKU || item.product?.sku || 'N/A',
+    },
+  });
 
   // Fetch user details using token
   const fetchUserDetails = async (token) => {
-
-    console.log("Fetching user details with token:", token);
     try {
       const response = await axios.get(`${URLS.GetProfile}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -163,10 +157,8 @@ const mapCartProduct = (item) => ({
       const userData = response.data.data.user;
       const userCart = response.data.data.cart || [];
       
-      // Store user data in localStorage
       storeUserData(userData, userCart);
       
-      // Set user state with role
       setUser({
         id: userData._id,
         name: userData.name,
@@ -184,10 +176,7 @@ const mapCartProduct = (item) => ({
       };
     } catch (error) {
       console.error("Profile fetch error:", error);
-      if (
-        error.response &&
-        (error.response.status === 401 || error.response.data.data.message === "Invalid or expired token")
-      ) {
+      if (error.response && (error.response.status === 401 || error.response.data.data?.message === "Invalid or expired token")) {
         logout();
       }
       return null;
@@ -195,7 +184,6 @@ const mapCartProduct = (item) => ({
   };
 
   const loadWishlistFromServer = async (token, userId) => {
-    
     try {
       const res = await axios.get(URLS.WishlistGet, {
         headers: { Authorization: `Bearer ${token}` }
@@ -224,9 +212,8 @@ const mapCartProduct = (item) => ({
         reviewsCount: product.reviewsCount || product.reviews,
         originalPrice: product.originalPrice,
         discount: product.discount,
-        quantity: product.quantity || 0,           // <-- include quantity
-        inStock: (product.quantity || 0) > 0 || product.inStock, 
-         
+        quantity: product.quantity || 0,
+        inStock: (product.quantity || 0) > 0 || product.inStock,
       }));
       setWishlistItems(mapped);
     } catch (error) {
@@ -235,195 +222,161 @@ const mapCartProduct = (item) => ({
     }
   };
 
-const addToCart = async (product) => {
-  const token = localStorage.getItem('authToken');
-  if (!token) {
-    toast({ title: 'Please sign in', variant: 'destructive' });
-    openLoginDialog();
-    return;
-  }
-  // console.log("mytoken",token);
-  try {
-    const payload = {
-      productId: product._id || product.id,
-      quantity: 1,
-    };
-    const res = await axios.post(URLS.CartAdd, payload, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    // console.log("Add to cart response:", res.data);
-    const raw = res.data;
-  const updatedCart = raw?.items || [];
-    // console.log("Updated cart from server:", updatedCart); 
- // Because items[] holds your cart products
-  setCartItems(updatedCart.map(mapCartProduct));
-    toast({ title: 'Added to cart', variant: 'success' });
-  } catch (error) {
-    console.error("Error adding to cart:", error);
-    toast({
-      title: 'Cart error',
-      description: error.response?.data?.message || error.message,
-      variant: 'destructive',
-    });
-  }
-};
-
+  const addToCart = async (product) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast({ title: 'Please sign in', variant: 'destructive' });
+      openLoginDialog();
+      return;
+    }
+    
+    try {
+      const payload = {
+        productId: product._id || product.id,
+        quantity: 1,
+      };
+      const res = await axios.post(URLS.CartAdd, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      const raw = res.data;
+      const updatedCart = raw?.items || [];
+      setCartItems(updatedCart.map(mapCartProduct));
+      toast({ title: 'Added to cart', variant: 'success' });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast({
+        title: 'Cart error',
+        description: error.response?.data?.message || error.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   const isInWishlist = (idOrSku) => {
     return wishlistItems.some(item => item.id === idOrSku || item.sku === idOrSku);
   };
 
- const addToWishlist = async (productId) => {
-  const token = localStorage.getItem("authToken");
-  if (!token) return alert("Please login to add to wishlist");
+  const addToWishlist = async (productId) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return alert("Please login to add to wishlist");
 
-  try {
-    const res = await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    // console.log(res.data);
-     loadWishlistFromServer(token); // reload wishlist
-  } catch (err) {
-    console.error("Add wishlist error:", err.response?.data || err.message);
-  }
-};
-
-
-
-const removeFromWishlist = async (productId) => {
-  const token = localStorage.getItem("authToken");
-
-  // console.log("Removing product from wishlist:", productId);
-  // console.log("Using token:", token);
-  if (!token) return alert("Please login to remove from wishlist");
-
-  try {
-     await axios.delete(`${URLS.WishlistRemove}/${productId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    console.log("hwy man",res.data);
-    setWishlistItems(prev => prev.filter(item => item._id !== productId));
-  } catch (err) {
-    console.error("Remove wishlist error:", err.response?.data || err.message);
-  }
-};
-
-
-
-
-// Call this on product wishlist toggle
-const toggleWishlist = async (product) => {
-  const token = localStorage.getItem('authToken');
-  
-  if (!token) {
-    // Store pending product
-    localStorage.setItem('pendingWishlistProduct', JSON.stringify(product));
-    localStorage.setItem('pendingRedirectToWishlist', '1');
-    openLoginDialog(); // open login modal
-    return;
-  }
-
-  await handleWishlist(product, token);
-};
-
-// Function to handle actual wishlist add/remove
-const handleWishlist = async (product, token) => {
-  const productId = product._id || product.id;
-  const key = product.sku || product.id || product._id;
-
-  if (!productId) {
-    toast({ title: 'Missing product id', description: 'Unable to add this product to wishlist.', variant: 'destructive' });
-    return;
-  }
-
-  try {
-    if (isInWishlist(key)) {
-      await axios.delete(`${URLS.WishlistRemove}/${productId}`, { headers: { Authorization: `Bearer ${token}` } });
-      removeFromWishlist(key);
-      await loadWishlistFromServer(token);
-      toast({ title: 'Removed from wishlist', variant: 'destructive' });
-    } else {
-      await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      addToWishlist(product);
-      await loadWishlistFromServer(token);
-      window.dispatchEvent(new Event('wishlist-updated'));
-      toast({ title: 'Added to wishlist', variant: 'success' });
+    try {
+      const res = await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      loadWishlistFromServer(token);
+    } catch (err) {
+      console.error("Add wishlist error:", err.response?.data || err.message);
     }
-  } catch (err) {
-    const status = err.response?.status;
-    const msg = err.response?.data?.message?.toLowerCase();
-    if (status === 400 && msg.includes('already')) {
-      addToWishlist(product);
-      toast({ title: 'Already in wishlist', variant: 'success' });
-    } else if (status === 401) {
-      toast({ title: 'Sign in required', description: 'Please sign in to use wishlist.', variant: 'destructive' });
-    } else {
-      toast({ title: 'Wishlist error', description: err.response?.data?.message || err.message, variant: 'destructive' });
+  };
+
+  const removeFromWishlist = async (productId) => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return alert("Please login to remove from wishlist");
+
+    try {
+      await axios.delete(`${URLS.WishlistRemove}/${productId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setWishlistItems(prev => prev.filter(item => item._id !== productId));
+    } catch (err) {
+      console.error("Remove wishlist error:", err.response?.data || err.message);
     }
-  }
-};
+  };
 
-// --- In your Login Success Handler ---
-const onLoginSuccess = async (token) => {
-  // Check for pending wishlist product
-  const pendingProductStr = localStorage.getItem('pendingWishlistProduct');
-  if (pendingProductStr) {
-    const pendingProduct = JSON.parse(pendingProductStr);
-    await handleWishlist(pendingProduct, token);
-    localStorage.removeItem('pendingWishlistProduct');
-    localStorage.removeItem('pendingRedirectToWishlist');
-    navigate('/wishlist'); // navigate to wishlist page immediately
-  }
-};
+  const toggleWishlist = async (product) => {
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      localStorage.setItem('pendingWishlistProduct', JSON.stringify(product));
+      localStorage.setItem('pendingRedirectToWishlist', '1');
+      openLoginDialog();
+      return;
+    }
 
-const updateQuantity = async (productId, action) => {
-  // Optimistically update UI
-  setCartItems(prev =>
-    prev.map(item => {
-      if (item.product._id === productId) {
-        const newQty = action === "increment" ? item.quantity + 1 : item.quantity - 1;
-        return { ...item, quantity: Math.max(newQty, 1) }; // prevent < 1
+    await handleWishlist(product, token);
+  };
+
+  const handleWishlist = async (product, token) => {
+    const productId = product._id || product.id;
+    const key = product.sku || product.id || product._id;
+
+    if (!productId) {
+      toast({ title: 'Missing product id', description: 'Unable to add this product to wishlist.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      if (isInWishlist(key)) {
+        await axios.delete(`${URLS.WishlistRemove}/${productId}`, { headers: { Authorization: `Bearer ${token}` } });
+        removeFromWishlist(key);
+        await loadWishlistFromServer(token);
+        toast({ title: 'Removed from wishlist', variant: 'destructive' });
+      } else {
+        await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+        addToWishlist(product);
+        await loadWishlistFromServer(token);
+        window.dispatchEvent(new Event('wishlist-updated'));
+        toast({ title: 'Added to wishlist', variant: 'success' });
       }
-      return item;
-    })
-  );
+    } catch (err) {
+      const status = err.response?.status;
+      const msg = err.response?.data?.message?.toLowerCase();
+      if (status === 400 && msg.includes('already')) {
+        addToWishlist(product);
+        toast({ title: 'Already in wishlist', variant: 'success' });
+      } else if (status === 401) {
+        toast({ title: 'Sign in required', description: 'Please sign in to use wishlist.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Wishlist error', description: err.response?.data?.message || err.message, variant: 'destructive' });
+      }
+    }
+  };
 
-  // Then call API
-  const token = localStorage.getItem("authToken");
-  if (!token) return;
-
-  try {
-    const res = await axios.put(
-      URLS.CartUpdate,
-      { productId, action },
-      { headers: { Authorization: `Bearer ${token}` } }
+  const updateQuantity = async (productId, action) => {
+    setCartItems(prev =>
+      prev.map(item => {
+        if (item.product._id === productId) {
+          const newQty = action === "increment" ? item.quantity + 1 : item.quantity - 1;
+          return { ...item, quantity: Math.max(newQty, 1) };
+        }
+        return item;
+      })
     );
 
-    if (res.data.data?.items) {
-      setCartItems(res.data.data.items.map(mapCartProduct)); // sync with server
-    }
-  } catch (error) {
-    console.error("Error updating quantity:", error);
-  }
-};
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
 
+    try {
+      const res = await axios.put(
+        URLS.CartUpdate,
+        { productId, action },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data.data?.items) {
+        setCartItems(res.data.data.items.map(mapCartProduct));
+      }
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+    }
+  };
 
   const removeFromCart = async (productId) => {
-  const token = localStorage.getItem('authToken');
-  if (!token) return;
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
 
-  try {
-    await axios.delete(URLS.CartRemove(productId), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      await axios.delete(URLS.CartRemove(productId), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    setCartItems(prev => prev.filter(item => item.product._id !== productId));
-  } catch (error) {
-    console.error("Error removing item:", error);
-  }
-};
-
-
+      setCartItems(prev => prev.filter(item => item.product._id !== productId));
+    } catch (error) {
+      console.error("Error removing item:", error);
+    }
+  };
 
   const clearCart = () => {
     setCartItems([]);
@@ -432,50 +385,48 @@ const updateQuantity = async (productId, action) => {
   const openLoginDialog = () => setIsLoginDialogOpen(true);
   const closeLoginDialog = () => setIsLoginDialogOpen(false);
 
-const login = async (email, password) => {
-  try {
-    let token = localStorage.getItem('authToken');
+  const login = async (email, password) => {
+    try {
+      let token = localStorage.getItem('authToken');
 
-    if (!token) {
-      const response = await axios.post(`${API_BASE_URL}/signin`, { email, password });
-      token = response.data.data.token;
-      localStorage.setItem('authToken', token);
-    }
-
-    if (token) {
-      const fetchedUser = await fetchUserDetails(token);
-      if (fetchedUser?.id) {
-        await loadWishlistFromServer(token, fetchedUser.id);
-        await loadCartFromServer(token);
+      if (!token) {
+        const response = await axios.post(`${API_BASE_URL}/signin`, { email, password });
+        token = response.data.data.token;
+        localStorage.setItem('authToken', token);
       }
 
-      if (pendingWishlistProduct) {
-        const productId = pendingWishlistProduct._id || pendingWishlistProduct.id;
-        if (productId) {
-          await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          addToWishlist(pendingWishlistProduct);
+      if (token) {
+        const fetchedUser = await fetchUserDetails(token);
+        if (fetchedUser?.id) {
+          await loadWishlistFromServer(token, fetchedUser.id);
+          await loadCartFromServer(token);
         }
-        setPendingWishlistProduct(null);
+
+        if (pendingWishlistProduct) {
+          const productId = pendingWishlistProduct._id || pendingWishlistProduct.id;
+          if (productId) {
+            await axios.post(`${URLS.WishlistAdd}/${productId}`, {}, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            addToWishlist(pendingWishlistProduct);
+          }
+          setPendingWishlistProduct(null);
+        }
+
+        return true;
       }
 
-      return true;
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      clearAuthData();
+      const errorMessage = error.response?.data?.message || 'Login failed';
+      throw new Error(errorMessage);
     }
-
-    return false;
-  } catch (error) {
-    console.error('Login error:', error);
-    clearAuthData();
-    const errorMessage = error.response?.data?.message || 'Login failed';
-    throw new Error(errorMessage);
-  }
-};
+  };
 
   const loginWithGoogle = async () => {
     try {
-      // Implement your Google auth logic here
-      // After successful login, store user data
       const userData = {
         id: 'google-1',
         email: 'user@gmail.com',
@@ -538,21 +489,195 @@ const login = async (email, password) => {
     return orders;
   };
 
-  const updateProduct = (updatedProduct) => {
-    setProducts(prev =>
-      prev.map(product =>
-        product.id === updatedProduct.id ? updatedProduct : product
-      )
-    );
+  // ✅ UPDATE PRODUCT with FormData support
+  const updateProduct = async (productId, productData) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const formData = new FormData();
+      
+      // Append all text fields
+      if (productData.productName || productData.name) {
+        formData.append('name', productData.productName || productData.name);
+      }
+      if (productData.sku || productData.SKU) {
+        formData.append('sku', productData.sku || productData.SKU);
+      }
+      if (productData.price) formData.append('price', productData.price.toString());
+      if (productData.originalPrice) formData.append('originalPrice', productData.originalPrice.toString());
+      if (productData.category) formData.append('category', productData.category);
+      if (productData.brand) formData.append('brand', productData.brand);
+      if (productData.quantity !== undefined) formData.append('quantity', productData.quantity.toString());
+      if (productData.description) formData.append('description', productData.description);
+      if (productData.rating) formData.append('rating', productData.rating.toString());
+      if (productData.reviewCounts || productData.reviews) {
+        formData.append('reviewCounts', (productData.reviewCounts || productData.reviews).toString());
+      }
+      if (productData.discount) formData.append('discount', productData.discount.toString());
+      if (productData.badge) formData.append('badge', productData.badge);
+      if (productData.inStock !== undefined) formData.append('inStock', productData.inStock.toString());
+
+      // Handle categories array
+      if (productData.categories && Array.isArray(productData.categories)) {
+        formData.append('categories', JSON.stringify(productData.categories));
+      }
+
+      // Handle image files if present
+      if (productData.imageFiles && productData.imageFiles.length > 0) {
+        productData.imageFiles.forEach((file) => {
+          formData.append('images', file);
+        });
+      }
+
+      const response = await axios.put(
+        `${URLS.UpdateProduct}/${productId}`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      // Update local state
+      setProducts(prev =>
+        prev.map(product =>
+          product._id === productId || product.id === productId
+            ? { ...product, ...response.data.data }
+            : product
+        )
+      );
+
+      toast({
+        title: 'Product Updated',
+        description: 'Product has been updated successfully',
+        variant: 'success',
+      });
+
+      return response.data.data;
+    } catch (error) {
+      console.error('Error updating product:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update product';
+      toast({
+        title: 'Update Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      throw error;
+    }
   };
 
-  const deleteProduct = (id) => {
-    setProducts(prev => prev.filter(product => product.id !== id));
+  // ✅ DELETE PRODUCT
+  const deleteProduct = async (productId) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      await axios.delete(`${URLS.DeleteProduct}/${productId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Update local state
+      setProducts(prev => prev.filter(product => product._id !== productId && product.id !== productId));
+
+      toast({
+        title: 'Product Deleted',
+        description: 'Product has been removed successfully',
+        variant: 'success',
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to delete product';
+      toast({
+        title: 'Delete Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      throw error;
+    }
   };
 
-  const addProduct = (newProduct) => {
-    const id = Math.max(...products.map(p => p.id), 0) + 1;
-    setProducts(prev => [...prev, { ...newProduct, id }]);
+  // ✅ ADD PRODUCT with FormData support
+  const addProduct = async (productData) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const formData = new FormData();
+      
+      // Append required and optional fields
+      formData.append('productName', productData.productName || productData.name);
+      formData.append('SKU', productData.SKU || productData.sku);
+      formData.append('price', productData.price.toString());
+      formData.append('originalPrice', (productData.originalPrice || productData.price).toString());
+      formData.append('category', productData.category);
+      formData.append('brand', productData.brand || '');
+      formData.append('quantity', (productData.quantity || 0).toString());
+      formData.append('description', productData.description || '');
+      formData.append('rating', (productData.rating || 4.0).toString());
+      formData.append('reviewCounts', (productData.reviewCounts || productData.reviews || 0).toString());
+      formData.append('discount', (productData.discount || 0).toString());
+      formData.append('badge', productData.badge || '');
+      formData.append('inStock', (productData.inStock !== undefined ? productData.inStock : true).toString());
+
+      // Handle image files
+      if (productData.imageFiles && productData.imageFiles.length > 0) {
+        productData.imageFiles.forEach((file) => {
+          formData.append('images', file);
+        });
+      }
+
+      const response = await axios.post(
+        URLS.AddProduct,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      // Update local state with new product
+      const newProduct = response.data.data;
+      setProducts(prev => [...prev, {
+        ...newProduct,
+        id: newProduct._id,
+        name: newProduct.productName || newProduct.name
+      }]);
+
+      toast({
+        title: 'Product Added',
+        description: 'New product has been added successfully',
+        variant: 'success',
+      });
+
+      // Refresh products list
+      await fetchProducts();
+
+      return newProduct;
+    } catch (error) {
+      console.error('Error adding product:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to add product';
+      toast({
+        title: 'Add Failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      throw error;
+    }
   };
 
   const updateOrderStatus = (orderId, status) => {
