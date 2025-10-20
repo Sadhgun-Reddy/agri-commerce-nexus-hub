@@ -28,10 +28,7 @@ const ProductsPage = () => {
   const categoryFromUrl = searchParams.get('category') || '';
 
   // Debug logging
-  useEffect(() => {
-    // console.log('📦 Products Data:', products);
-    // console.log('✅ Is Array:', Array.isArray(products));
-    // console.log('📊 Products Count:', products?.length || 0);
+  useEffect(() => { 
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [products]);
 
@@ -113,7 +110,6 @@ const ProductsPage = () => {
       console.error('❌ Error sorting products:', sortError);
     }
 
-    console.log(`✅ Filtered ${filtered.length} products from ${products.length} total`);
     return filtered;
   }, [products, priceRange, selectedCategories, inStockOnly, sortBy, searchQuery, searchFromUrl]);
 

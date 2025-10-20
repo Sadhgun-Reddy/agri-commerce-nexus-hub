@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Link } from 'react-router-dom';
 import ProductCard from '@/components/products/ProductCard.jsx';
 import { URLS } from '@/Urls.jsx';
-import { useApp } from '@/contexts/AppContext.jsx'; // <- use your context
+import { useApp } from '@/contexts/AppContext.jsx'; 
 
 const normalizeImageUrl = (src) => {
   if (!src) return '/placeholder.svg';
@@ -21,25 +21,21 @@ const normalizeImageUrl = (src) => {
 };
 
 const WishlistPage = () => {
-  const { wishlistItems, setWishlistItems, loadWishlistFromServer, addToCart,removeFromWishlist } = useApp(); // <- context functions
+  const { wishlistItems, setWishlistItems, loadWishlistFromServer, addToCart, removeFromWishlist } = useApp();
   const [loading, setLoading] = useState(false);
 
   const token = localStorage.getItem("authToken");
-  
   const userId = localStorage.getItem("userId");
 
-
   useEffect(() => {
-  const handleUpdate = () => {
-    const token = localStorage.getItem("authToken");
-    // const userId = localStorage.getItem("userId");
-    loadWishlistFromServer(token);
-  };
+    const handleUpdate = () => {
+      const token = localStorage.getItem("authToken");
+      loadWishlistFromServer(token);
+    };
 
-  window.addEventListener('wishlist-updated', handleUpdate);
-  return () => window.removeEventListener('wishlist-updated', handleUpdate);
-}, [loadWishlistFromServer]);
-
+    window.addEventListener('wishlist-updated', handleUpdate);
+    return () => window.removeEventListener('wishlist-updated', handleUpdate);
+  }, [loadWishlistFromServer]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -60,23 +56,23 @@ const WishlistPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {wishlistItems.map(item => {
-  const computedInStock = (item.quantity || 0) > 0;
-  const product = {
-    ...item,
-    inStock: computedInStock,
-    images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
-    categories: Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []),
-    reviewsCount: item.reviewsCount || item.reviews || 0,
-    rating: item.rating || 0
-  };
+                // ✅ Respect the API's inStock value, don't override it
+                const product = {
+                  ...item,
+                  // Use the inStock value from API if it exists, otherwise compute from quantity
+                  inStock: item.inStock !== undefined ? item.inStock : (item.quantity || 0) > 0,
+                  images: Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []),
+                  categories: Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []),
+                  reviewsCount: item.reviewsCount || item.reviews || 0,
+                  rating: item.rating || 0
+                };
 
-  return (
-    <div key={item._id}>
-      <ProductCard product={product} />
-    </div>
-  );
-})}
-
+                return (
+                  <div key={item._id || item.id}>
+                    <ProductCard product={product} />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

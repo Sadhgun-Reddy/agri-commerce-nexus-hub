@@ -60,7 +60,6 @@ export const AppProvider = ({ children }) => {
       })) : [];
       
       setProducts(normalizedProducts);
-      console.log(`✅ Loaded ${normalizedProducts.length} products`);
       
     } catch (error) {
       console.error("❌ Error fetching products:", error);
@@ -183,75 +182,94 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const loadWishlistFromServer = async (token, userId) => {
-    try {
-      const res = await axios.get(URLS.WishlistGet, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = res.data;
-      const products = Array.isArray(res.data?.data?.products)
-        ? res.data.data.products
-        : (Array.isArray(data?.wishlist?.products) ? data.wishlist.products : []);
 
-      if (!products.length || typeof products[0] === 'string') {
-        const local = localStorage.getItem(getWishlistStorageKey(userId));
-        setWishlistItems(local ? JSON.parse(local) : []);
-        return;
-      }
+const loadWishlistFromServer = async (token, userId) => {
+  try {
+    const res = await axios.get(URLS.WishlistGet, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = res.data;
+    const products = Array.isArray(res.data?.data?.products)
+      ? res.data.data.products
+      : (Array.isArray(data?.wishlist?.products) ? data.wishlist.products : []);
 
-      const mapped = products.map((product) => ({
-        id: product.id || product._id,
-        sku: product.sku,
-        name: product.name || product.productName,
-        price: product.price,
-        image: (product.images && product.images[0]) || product.image,
-        images: product.images,
-        category: product.category || (Array.isArray(product.categories) ? product.categories.join(', ') : undefined),
-        categories: product.categories,
-        rating: product.rating,
-        reviewsCount: product.reviewsCount || product.reviews,
-        originalPrice: product.originalPrice,
-        discount: product.discount,
-        quantity: product.quantity || 0,
-        inStock: (product.quantity || 0) > 0 || product.inStock,
-      }));
-      setWishlistItems(mapped);
-    } catch (error) {
-      const local = userId ? localStorage.getItem(getWishlistStorageKey(userId)) : null;
+    if (!products.length || typeof products[0] === 'string') {
+      const local = localStorage.getItem(getWishlistStorageKey(userId));
       setWishlistItems(local ? JSON.parse(local) : []);
-    }
-  };
-
-  const addToCart = async (product) => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      toast({ title: 'Please sign in', variant: 'destructive' });
-      openLoginDialog();
       return;
     }
+
+    const mapped = products.map((product) => ({
+      id: product.id || product._id,
+      _id: product._id || product.id,  // ✅ Include _id for consistency
+      sku: product.sku || product.SKU,
+      name: product.name || product.productName,
+      price: product.price,
+      image: (product.images && product.images[0]) || product.image,
+      images: product.images,
+      category: product.category || (Array.isArray(product.categories) ? product.categories.join(', ') : undefined),
+      categories: product.categories,
+      rating: product.rating,
+      reviewsCount: product.reviewsCount || product.reviewCounts || product.reviews,
+      originalPrice: product.originalPrice,
+      discount: product.discount,
+      quantity: product.quantity || 0,
+      inStock: product.inStock !== undefined ? product.inStock : (product.quantity || 0) > 0,
+      badge: product.badge,
+      brand: product.brand,
+      description: product.description,
+    }));
+    setWishlistItems(mapped);
+  } catch (error) {
+    console.error('Error loading wishlist:', error);
+    const local = userId ? localStorage.getItem(getWishlistStorageKey(userId)) : null;
+    setWishlistItems(local ? JSON.parse(local) : []);
+  }
+};
+
+const addToCart = async (product) => {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    toast({ title: 'Please sign in', variant: 'destructive' });
+    openLoginDialog();
+    return;
+  }
+
+  const productInStock = product.inStock !== undefined 
+    ? product.inStock 
+    : (product.quantity || 0) > 0;
+
+  if (!productInStock) {
+    toast({ 
+      title: 'Out of stock', 
+      description: 'This product is currently unavailable.',
+      variant: 'destructive' 
+    });
+    return;
+  }
+  
+  try {
+    const payload = {
+      productId: product._id || product.id,
+      quantity: 1,
+    };
+    const res = await axios.post(URLS.CartAdd, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     
-    try {
-      const payload = {
-        productId: product._id || product.id,
-        quantity: 1,
-      };
-      const res = await axios.post(URLS.CartAdd, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      const raw = res.data;
-      const updatedCart = raw?.items || [];
-      setCartItems(updatedCart.map(mapCartProduct));
-      toast({ title: 'Added to cart', variant: 'success' });
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      toast({
-        title: 'Cart error',
-        description: error.response?.data?.message || error.message,
-        variant: 'destructive',
-      });
-    }
-  };
+    const raw = res.data;
+    const updatedCart = raw?.items || [];
+    setCartItems(updatedCart.map(mapCartProduct));
+    toast({ title: 'Added to cart', variant: 'success' });
+  } catch (error) {
+    console.error("Error adding to cart:", error);
+    toast({
+      title: 'Cart error',
+      description: error.response?.data?.message || error.message,
+      variant: 'destructive',
+    });
+  }
+};
 
   const isInWishlist = (idOrSku) => {
     return wishlistItems.some(item => item.id === idOrSku || item.sku === idOrSku);

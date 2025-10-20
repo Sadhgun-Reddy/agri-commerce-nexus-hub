@@ -18,10 +18,10 @@ import AdminPage from "./pages/AdminPage";
 import OrdersPage from "./pages/OrdersPage";
 import WishlistPage from "./pages/WishlistPage";
 import NotFound from "./pages/NotFound";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Privacy from "./pages/Privacy";
 import TermsOfService from './pages/TermsOfService';
 import ReturnPolicy from './pages/ReturnPolicy';
-import CookiePolicy from './pages/CookiePolicy';
+import Cookie from './pages/Cookie';
 import AboutUs from './pages/Aboutus';
 import ScrollToTop from "./pages/ScrollToTop";
 
@@ -30,11 +30,11 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <AppProvider>
-        <Toaster />
-        <Sonner position="top-right" richColors closeButton />
-        <BrowserRouter>
-        <ScrollToTop smooth={false} />
+      <BrowserRouter>
+        <AppProvider>
+          <Toaster />
+          <Sonner position="top-right" richColors closeButton />
+          <ScrollToTop smooth={false} />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<HomePage />} />
@@ -43,10 +43,10 @@ const App = () => (
             <Route path="/about" element={<AboutUs />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/cart" element={<CartPage />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/privacy-policy" element={<Privacy />} />
             <Route path="/termofservice" element={<TermsOfService />} />
-             <Route path="/returnpolicy" element={<ReturnPolicy />} />
-              <Route path="/cookiepolicy" element={<CookiePolicy />} />
+            <Route path="/returnpolicy" element={<ReturnPolicy />} />
+            <Route path="/cookie" element={<Cookie />} />
             
             {/* Protected Routes - Require Authentication */}
             <Route 
@@ -103,8 +103,8 @@ const App = () => (
             {/* 404 Not Found */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </AppProvider>
+        </AppProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

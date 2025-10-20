@@ -53,7 +53,6 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         if (response.ok) {
 
           const { token, userId } = data.data;
-          // console.log("Sign up successful, received token:", token, "and userId:", userId);
           localStorage.setItem('authToken', token);
           localStorage.setItem('user', JSON.stringify({ _id: userId }));
           toast({
