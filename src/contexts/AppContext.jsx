@@ -507,16 +507,14 @@ const addToCart = async (product) => {
     return orders;
   };
 
-  // ✅ UPDATE PRODUCT with FormData support
+  // UPDATE PRODUCT with FormData support
   const updateProduct = async (productId, productData) => {
     const token = localStorage.getItem('authToken');
-    if (!token) {
-      throw new Error('Authentication required');
-    }
+    if (!token) throw new Error('Authentication required');
 
     try {
       const formData = new FormData();
-      
+
       // Append all text fields
       if (productData.productName || productData.name) {
         formData.append('name', productData.productName || productData.name);
@@ -524,30 +522,57 @@ const addToCart = async (product) => {
       if (productData.sku || productData.SKU) {
         formData.append('sku', productData.sku || productData.SKU);
       }
-      if (productData.price) formData.append('price', productData.price.toString());
-      if (productData.originalPrice) formData.append('originalPrice', productData.originalPrice.toString());
-      if (productData.category) formData.append('category', productData.category);
-      if (productData.brand) formData.append('brand', productData.brand);
-      if (productData.quantity !== undefined) formData.append('quantity', productData.quantity.toString());
-      if (productData.description) formData.append('description', productData.description);
-      if (productData.rating) formData.append('rating', productData.rating.toString());
+      if (productData.price) {
+        formData.append('price', productData.price.toString());
+      }
+      if (productData.originalPrice) {
+        formData.append('originalPrice', productData.originalPrice.toString());
+      }
+      if (productData.category) {
+        formData.append('category', productData.category);
+      }
+      if (productData.brand) {
+        formData.append('brand', productData.brand);
+      }
+      if (productData.quantity !== undefined) {
+        formData.append('quantity', productData.quantity.toString());
+      }
+      if (productData.description) {
+        formData.append('description', productData.description);
+      }
+      if (productData.rating) {
+        formData.append('rating', productData.rating.toString());
+      }
       if (productData.reviewCounts || productData.reviews) {
         formData.append('reviewCounts', (productData.reviewCounts || productData.reviews).toString());
       }
-      if (productData.discount) formData.append('discount', productData.discount.toString());
-      if (productData.badge) formData.append('badge', productData.badge);
-      if (productData.inStock !== undefined) formData.append('inStock', productData.inStock.toString());
+      if (productData.discount) {
+        formData.append('discount', productData.discount.toString());
+      }
+      if (productData.badge) {
+        formData.append('badge', productData.badge);
+      }
+      if (productData.inStock !== undefined) {
+        formData.append('inStock', productData.inStock.toString());
+      }
+      if (productData.youtubeUrl) {
+        formData.append('youtubeUrl', productData.youtubeUrl);
+      }
 
       // Handle categories array
       if (productData.categories && Array.isArray(productData.categories)) {
         formData.append('categories', JSON.stringify(productData.categories));
       }
 
-      // Handle image files if present
+      // ✅ FIXED: Handle images properly
       if (productData.imageFiles && productData.imageFiles.length > 0) {
-        productData.imageFiles.forEach((file) => {
+        // User uploaded new images
+        productData.imageFiles.forEach(file => {
           formData.append('images', file);
         });
+      } else if (productData.existingImages && productData.existingImages.length > 0) {
+        // Keep existing images - send as JSON string
+        formData.append('images', JSON.stringify(productData.existingImages));
       }
 
       const response = await axios.put(
@@ -564,16 +589,16 @@ const addToCart = async (product) => {
       // Update local state
       setProducts(prev =>
         prev.map(product =>
-          product._id === productId || product.id === productId
+          (product._id === productId || product.id === productId)
             ? { ...product, ...response.data.data }
             : product
         )
       );
 
       toast({
-        title: 'Product Updated',
-        description: 'Product has been updated successfully',
-        variant: 'success',
+        title: "Product Updated",
+        description: "Product has been updated successfully",
+        variant: "success",
       });
 
       return response.data.data;
@@ -581,13 +606,14 @@ const addToCart = async (product) => {
       console.error('Error updating product:', error);
       const errorMessage = error.response?.data?.message || 'Failed to update product';
       toast({
-        title: 'Update Failed',
+        title: "Update Failed",
         description: errorMessage,
-        variant: 'destructive',
+        variant: "destructive",
       });
       throw error;
     }
   };
+
 
   // ✅ DELETE PRODUCT
   const deleteProduct = async (productId) => {

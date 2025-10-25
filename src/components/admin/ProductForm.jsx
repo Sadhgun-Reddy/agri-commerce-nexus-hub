@@ -25,11 +25,13 @@ const ProductForm = ({ product, onSave, onCancel }) => {
     discount: 0,
     badge: '',
     quantity: 0,
-    description: ''
+    description: '',
+    youtubeUrl: ''
   });
 
-  const [imageFiles, setImageFiles] = useState([]);
-  const [imagePreviews, setImagePreviews] = useState([]);
+  const [newImageFiles, setNewImageFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [allImagePreviews, setAllImagePreviews] = useState([]);
 
   const categories = [
     'Fruits',
@@ -58,8 +60,6 @@ const ProductForm = ({ product, onSave, onCancel }) => {
     'Lawn/Stubble Movers'
   ];
 
-  const brands = ['Honda', 'Mahindra', 'Kirloskar', 'Crompton', 'Bajaj', 'Fieldking', 'FreshFarms'];
-
   useEffect(() => {
     if (product) {
       setFormData({
@@ -79,25 +79,39 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         discount: product.discount || 0,
         badge: product.badge || '',
         quantity: product.quantity || 0,
-        description: product.description || ''
+        description: product.description || '',
+        youtubeUrl: product.youtubeUrl || ''
       });
 
-      // Set image previews from existing product images
+      // Set existing images from product
       if (product.images && Array.isArray(product.images)) {
-        setImagePreviews(product.images);
+        setExistingImages(product.images);
+        setAllImagePreviews(product.images);
       } else if (product.image) {
-        setImagePreviews([product.image]);
+        setExistingImages([product.image]);
+        setAllImagePreviews([product.image]);
       }
+
+      // Reset new images
+      setNewImageFiles([]);
+    } else {
+      // Reset form for new product
+      setExistingImages([]);
+      setAllImagePreviews([]);
+      setNewImageFiles([]);
     }
   }, [product]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Prepare data with imageFiles
+    // Prepare data with both existing and new images
     const submitData = {
       ...formData,
-      imageFiles: imageFiles.length > 0 ? imageFiles : undefined
+      // Send new image files if any
+      newImageFiles: newImageFiles.length > 0 ? newImageFiles : undefined,
+      // Send existing images URLs
+      existingImages: existingImages.length > 0 ? existingImages : undefined,
     };
     
     onSave(submitData);
@@ -107,23 +121,41 @@ const ProductForm = ({ product, onSave, onCancel }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Handle image file selection
+  // Handle image file selection - APPEND to existing images
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     
     if (files.length > 0) {
-      setImageFiles(files);
+      // Add new files to existing new files array
+      const updatedNewFiles = [...newImageFiles, ...files];
+      setNewImageFiles(updatedNewFiles);
       
-      // Create preview URLs
-      const previews = files.map(file => URL.createObjectURL(file));
-      setImagePreviews(previews);
+      // Create preview URLs for new files
+      const newPreviews = files.map(file => URL.createObjectURL(file));
+      
+      // Combine existing images with new previews
+      setAllImagePreviews(prev => [...prev, ...newPreviews]);
     }
+
+    // Reset the input value to allow selecting the same file again
+    e.target.value = '';
   };
 
-  // ✅ Remove selected image
+  // Remove selected image
   const removeImage = (index) => {
-    setImageFiles(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    const totalExistingImages = existingImages.length;
+    
+    if (index < totalExistingImages) {
+      // Removing from existing images
+      setExistingImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      // Removing from new images
+      const newImageIndex = index - totalExistingImages;
+      setNewImageFiles(prev => prev.filter((_, i) => i !== newImageIndex));
+    }
+    
+    // Remove from preview
+    setAllImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -210,17 +242,24 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         </div>
         <div>
           <Label htmlFor="brand">Brand</Label>
-          <Select value={formData.brand} onValueChange={(value) => handleChange('brand', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select brand" />
-            </SelectTrigger>
-            <SelectContent>
-              {brands.map((brand) => (
-                <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            id="brand"
+            value={formData.brand}
+            onChange={(e) => handleChange('brand', e.target.value)}
+            placeholder="Enter brand name"
+          />
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="youtubeUrl">YouTube URL</Label>
+        <Input
+          id="youtubeUrl"
+          type="url"
+          value={formData.youtubeUrl}
+          onChange={(e) => handleChange('youtubeUrl', e.target.value)}
+          placeholder="https://www.youtube.com/watch?v=..."
+        />
       </div>
 
       <div>
@@ -234,7 +273,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         />
       </div>
 
-      {/* ✅ Image Upload Section */}
+      {/* Image Upload Section */}
       <div>
         <Label htmlFor="images">Product Images</Label>
         <div className="mt-2 space-y-3">
@@ -244,7 +283,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
               className="flex items-center gap-2 px-4 py-2 bg-brand-primary-50 text-brand-primary-600 rounded-lg cursor-pointer hover:bg-brand-primary-100 transition-colors border border-brand-primary-200"
             >
               <Upload className="w-4 h-4" />
-              <span className="text-sm font-medium">Choose Images</span>
+              <span className="text-sm font-medium">Add More Images</span>
             </label>
             <Input
               id="images"
@@ -255,20 +294,29 @@ const ProductForm = ({ product, onSave, onCancel }) => {
               className="hidden"
             />
             <span className="text-sm text-grey-500">
-              {imageFiles.length > 0 ? `${imageFiles.length} file(s) selected` : 'No files chosen'}
+              {allImagePreviews.length > 0 
+                ? `${allImagePreviews.length} total image(s) (${existingImages.length} existing, ${newImageFiles.length} new)`
+                : 'No files chosen'}
             </span>
           </div>
 
           {/* Image Previews */}
-          {imagePreviews.length > 0 && (
+          {allImagePreviews.length > 0 && (
             <div className="grid grid-cols-4 gap-3">
-              {imagePreviews.map((preview, index) => (
+              {allImagePreviews.map((preview, index) => (
                 <div key={index} className="relative group">
                   <img
                     src={preview}
                     alt={`Preview ${index + 1}`}
                     className="w-full h-24 object-cover rounded-lg border border-grey-200"
+                    onError={(e) => {
+                      e.target.src = '/placeholder.jpg';
+                    }}
                   />
+                  {/* Badge to show if it's existing or new */}
+                  <div className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                    {index < existingImages.length ? 'Existing' : 'New'}
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeImage(index)}

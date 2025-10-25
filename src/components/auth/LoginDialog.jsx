@@ -230,11 +230,11 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
               }
             </Button>
             
-            {!isSignUp && (
+            {/* {!isSignUp && (
               <p className="text-sm text-grey-600 text-center">
                 Demo: Use admin@agri.com for admin access, or any email/password for user
               </p>
-            )}
+            )} */}
             
             <div className="text-center">
               <Button 
