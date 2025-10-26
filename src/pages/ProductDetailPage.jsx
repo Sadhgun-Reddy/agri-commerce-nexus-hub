@@ -133,6 +133,7 @@ const handleToggleWishlist = async () => {
   const displayBadge = product.badge || (product.badges && product.badges[0]) || null;
   const displayWarranty = product.warranty || '';
   const displayQuantityAvailable = product.quantity || 0;
+  const productVideos = product.videoUrls || [];
 
   // Product images fallback
   const productImages = product.images?.length
@@ -229,6 +230,30 @@ const handleToggleWishlist = async () => {
                   </div>
                 </div>
               </div>
+
+              {/* Product Video Section */}
+{productVideos.length > 0 && (
+  <div className="mt-6">
+    <h3 className="text-lg font-semibold text-grey-900 mb-3">Product Videos</h3>
+    <div className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-grey-200">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+        {productVideos.map((video, index) => (
+          <div key={index} className="w-full aspect-video rounded-2xl overflow-hidden relative">
+            <iframe
+              className="w-full h-full"
+              src={video}
+              title={`Product Video ${index + 1}`}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            ></iframe>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
 
               {/* Thumbnail Navigation */}
               {productImages.length > 1 && (

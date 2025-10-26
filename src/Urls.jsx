@@ -27,4 +27,10 @@ export const URLS = {
   CartUpdate: Url + "api/cart/update",
   CartGet: Url + "api/cart",
   CartRemove: (productId) => Url + `api/cart/remove/${productId}`,
+  
+
+    createOrder: Url + "api/orders/place-order",
+   verifypayment: Url + "api/orders/verify-payment",
+    UserOrders: Url + "api/orders/my-orders",
+    
 };

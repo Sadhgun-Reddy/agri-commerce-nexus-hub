@@ -112,6 +112,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
       newImageFiles: newImageFiles.length > 0 ? newImageFiles : undefined,
       // Send existing images URLs
       existingImages: existingImages.length > 0 ? existingImages : undefined,
+       youtubeUrl: formData.youtubeUrl 
     };
     
     onSave(submitData);
@@ -251,16 +252,17 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="youtubeUrl">YouTube URL</Label>
-        <Input
-          id="youtubeUrl"
-          type="url"
-          value={formData.youtubeUrl}
-          onChange={(e) => handleChange('youtubeUrl', e.target.value)}
-          placeholder="https://www.youtube.com/watch?v=..."
-        />
-      </div>
+     <div>
+  <Label htmlFor="youtubeUrl">YouTube URL</Label>
+  <Input
+    id="youtubeUrl"
+    type="url"
+    value={formData.youtubeUrl}
+    onChange={(e) => handleChange('youtubeUrl', e.target.value)}
+    placeholder="https://www.youtube.com/watch?v=..."
+  />
+</div>
+
 
       <div>
         <Label htmlFor="description">Description</Label>
