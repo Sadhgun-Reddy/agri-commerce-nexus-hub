@@ -358,7 +358,7 @@ const AdminPage = () => {
                           <TableRow key={product._id || product.id}>
                             <TableCell>
                               <img
-                                src={product.image || (product.images && product.images[0]) || '/placeholder.jpg'}
+                                src={product.image || (product.image && product.image[0]) || '/placeholder.jpg'}
                                 alt={product.name || product.productName}
                                 className="w-12 h-12 object-cover rounded border border-grey-200"
                                 onError={(e) => {
