@@ -6,6 +6,7 @@ export const URLS = {
   UserLogin: Url + "api/auth/signin",
   GetProfile: Url + "api/auth/profile",
   UpdateProfile: Url + "api/auth/update-profile",
+  UpdatePassword: Url + "api/auth/update-password",
   
   // Products
   Products: Url + "api/products",

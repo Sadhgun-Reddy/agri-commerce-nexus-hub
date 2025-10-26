@@ -162,6 +162,7 @@ export const AppProvider = ({ children }) => {
         id: userData._id,
         name: userData.name,
         email: userData.email,
+        phone: userData.phone,
         role: userData.role,
         cart: userCart
       });
@@ -171,6 +172,7 @@ export const AppProvider = ({ children }) => {
         name: userData.name,
         email: userData.email,
         role: userData.role,
+        phone: userData.phone,
         cart: userCart
       };
     } catch (error) {

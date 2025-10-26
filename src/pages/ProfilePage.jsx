@@ -19,19 +19,38 @@ const ProfilePage = () => {
   const { toast } = useToast();
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(""); // disabled
+  const [phone, setPhone] = useState(""); // editable
   const [saving, setSaving] = useState(false);
   const [changePassword, setChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Load user info when component mounts or user changes
+  // Prefetch user details (name, email, phone)
   useEffect(() => {
-    if (user) {
-      setName(user.name || "");
-      setEmail(user.email || "");
-    }
-  }, [user]);
+    const fetchUserProfile = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        if (!token) return;
+
+        const res = await axios.get(URLS.GetProfile, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const userData = res.data?.data?.user;
+        if (userData) {
+          setName(userData.name || "");
+          setEmail(userData.email || "");
+          setPhone(userData.phone || "");
+        }
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -50,14 +69,14 @@ const ProfilePage = () => {
         return;
       }
 
-      // Prepare payload dynamically
-      const payload = {};
-      if (name && name !== user.name) payload.name = name.trim();
+      let didRequest = false;
+
+      // Password update
       if (changePassword) {
-        if (!newPassword || !confirmPassword) {
+        if (!currentPassword || !newPassword || !confirmPassword) {
           toast({
             title: "Missing fields",
-            description: "Please enter both password fields",
+            description: "Please fill current, new, and confirm password",
             variant: "destructive",
           });
           return;
@@ -70,10 +89,48 @@ const ProfilePage = () => {
           });
           return;
         }
-        payload.password = newPassword;
+
+        setSaving(true);
+        await axios.put(
+          URLS.UpdatePassword,
+          { currentPassword, newPassword },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        toast({
+          title: "Password updated",
+          description: "Your password was changed successfully",
+          variant: "success",
+        });
+
+        didRequest = true;
+        setChangePassword(false);
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
       }
 
-      if (Object.keys(payload).length === 0) {
+      // Profile update
+      const profilePayload = {};
+      if (name && name !== user?.name) profilePayload.name = name.trim();
+      if (phone && phone !== user?.phone) profilePayload.phone = phone.trim();
+
+      if (Object.keys(profilePayload).length > 0) {
+        setSaving(true);
+        const res = await axios.put(URLS.UpdateProfile, profilePayload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        toast({
+          title: "Profile updated",
+          description: res.data?.message || "Your profile was updated successfully",
+          variant: "success",
+        });
+
+        didRequest = true;
+      }
+
+      if (!didRequest) {
         toast({
           title: "No changes",
           description: "You haven’t made any updates",
@@ -82,22 +139,7 @@ const ProfilePage = () => {
         return;
       }
 
-      setSaving(true);
-      const res = await axios.put(URLS.UpdateProfile, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
       await refreshUser();
-      toast({
-        title: "Profile updated successfully",
-        description: res.data.message,
-        variant: "success",
-      });
-
-      // Reset fields
-      setChangePassword(false);
-      setNewPassword("");
-      setConfirmPassword("");
     } catch (err) {
       toast({
         title: "Update failed",
@@ -137,7 +179,6 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-8">My Profile</h1>
@@ -150,8 +191,8 @@ const ProfilePage = () => {
                   <div className="w-20 h-20 bg-brand-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <User className="w-10 h-10 text-brand-primary-500" />
                   </div>
-                  <h3 className="font-semibold text-gray-800 mb-1">{user?.name}</h3>
-                  <p className="text-gray-600">{user?.email}</p>
+                  <h3 className="font-semibold text-gray-800 mb-1">{name}</h3>
+                  <p className="text-gray-600">{email}</p>
                 </CardContent>
               </Card>
 
@@ -195,19 +236,37 @@ const ProfilePage = () => {
                       <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
+                        placeholder="Enter your name"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
-                      </label>
-                      <Input value={email} disabled readOnly />
-                    </div>
+                <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Email Address
+  </label>
+  <Input
+    type="email"
+    value={email}
+    disabled
+    className="bg-gray-100 cursor-not-allowed"
+  />
+</div>
+<div className="md:col-span-2">
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Phone Number
+  </label>
+  <Input
+    type="tel"
+    value={phone}
+    disabled
+    className="bg-gray-100 cursor-not-allowed"
+  />
+</div>
+
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Security Section */}
+              {/* Security */}
               <Card>
                 <CardHeader>
                   <CardTitle>Security</CardTitle>
@@ -225,6 +284,14 @@ const ProfilePage = () => {
 
                     {changePassword && (
                       <div className="mt-4 space-y-3">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Current Password
+                        </label>
+                        <Input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                        />
                         <label className="block text-sm font-medium text-gray-700">
                           New Password
                         </label>
@@ -254,7 +321,6 @@ const ProfilePage = () => {
           </div>
         </div>
       </main>
-
       <Footer />
     </div>
   );
