@@ -403,12 +403,12 @@ const addToCart = async (product) => {
   const openLoginDialog = () => setIsLoginDialogOpen(true);
   const closeLoginDialog = () => setIsLoginDialogOpen(false);
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     try {
       let token = localStorage.getItem('authToken');
 
       if (!token) {
-        const response = await axios.post(`${API_BASE_URL}/signin`, { email, password });
+        const response = await axios.post(`${API_BASE_URL}/signin`, { identifier, password });
         token = response.data.data.token;
         localStorage.setItem('authToken', token);
       }

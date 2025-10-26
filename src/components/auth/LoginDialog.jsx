@@ -10,10 +10,17 @@ import { URLS } from '../../Urls';
 
 const LoginDialog = ({ open, onOpenChange, trigger }) => {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+
+  // Login uses a single identifier (email OR phone)
+  const [identifier, setIdentifier] = useState('');
+
+  // Signup fields
+  const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');   // required for signup
+  const [email, setEmail] = useState('');   // optional for signup
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { loginWithGoogle, login } = useApp();
   const { toast } = useToast();
@@ -24,7 +31,6 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
     setIsLoading(true);
 
     if (isSignUp) {
-      // Handle sign up
       if (password !== confirmPassword) {
         toast({
           title: "Password mismatch",
@@ -35,32 +41,42 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         return;
       }
 
+      // Basic phone presence check (backend requires phone)
+      if (!phone.trim()) {
+        toast({
+          title: "Phone required",
+          description: "Please enter your phone number.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       try {
+        const payload = {
+          name: username,
+          phone: phone.trim(),     // send phone as required by backend
+          email: email.trim() || undefined, // optional
+          password: password,
+        };
+
         const response = await fetch(`${URLS.UserSignUp}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: username,
-            email: email,
-            password: password
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
 
         if (response.ok) {
-
-          const { token, userId } = data.data;
-          localStorage.setItem('authToken', token);
-          localStorage.setItem('user', JSON.stringify({ _id: userId }));
+          const { token, userId } = data.data || {};
+          if (token) localStorage.setItem('authToken', token);
+          if (userId) localStorage.setItem('user', JSON.stringify({ _id: userId }));
           toast({
             title: "Account created!",
             description: "Your account has been created successfully. Please sign in now.",
             variant: "success",
           });
-          // Switch to sign in mode and clear form
           setIsSignUp(false);
           resetForm();
         } else {
@@ -79,44 +95,45 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         console.error("Sign up error:", error);
       }
     } else {
-      // Handle sign in via centralized app context to update user immediately
+      // Sign-in with identifier (email OR phone) + password
       try {
-        const success = await login(email, password);
+        const success = await login(identifier, password);
         if (success) {
-  toast({
-    title: "Welcome back!",
-    description: "You have been successfully logged in.",
-    variant: "success",
-  });
-  navigate('/');
-  if (onOpenChange) onOpenChange(false);
-  resetForm();
-  // Redirect to wishlist if login was triggered by wishlist intent; fallback to profile
-  const pending = localStorage.getItem('pendingRedirectToWishlist');
-  if (pending) {
-    localStorage.removeItem('pendingRedirectToWishlist');
-    navigate('/wishlist');
-  } else {
-    navigate('/profile');
-  }
-}
+          toast({
+            title: "Welcome back!",
+            description: "You have been successfully logged in.",
+            variant: "success",
+          });
+          if (onOpenChange) onOpenChange(false);
+          resetForm();
+
+          const pending = localStorage.getItem('pendingRedirectToWishlist');
+          if (pending) {
+            localStorage.removeItem('pendingRedirectToWishlist');
+            navigate('/wishlist');
+          } else {
+            navigate('/profile');
+          }
+        }
       } catch (error) {
         toast({
           title: "Login failed",
-          description: error.message || "Invalid email or password. Please try again.",
+          description: error.message || "Invalid credentials. Please try again.",
           variant: "destructive",
         });
       }
     }
-    
+
     setIsLoading(false);
   };
 
   const resetForm = () => {
+    setIdentifier('');
+    setUsername('');
+    setPhone('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
-    setUsername('');
   };
 
   const toggleMode = () => {
@@ -128,7 +145,6 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
     setIsLoading(true);
     try {
       const success = await loginWithGoogle();
-      
       if (success) {
         toast({
           title: "Welcome!",
@@ -143,7 +159,6 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         variant: "destructive",
       });
     }
-    
     setIsLoading(false);
   };
 
@@ -154,17 +169,12 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
         <DialogHeader>
           <DialogTitle>{isSignUp ? 'Create Account' : 'Sign In'}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
-          <Button 
-            onClick={handleGoogleLogin} 
-            variant="outline" 
-            className="w-full"
-            disabled={isLoading}
-          >
+          <Button onClick={handleGoogleLogin} variant="outline" className="w-full" disabled={isLoading}>
             Continue with Google
           </Button>
-          
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -173,32 +183,61 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
               <span className="bg-background px-2 text-muted-foreground">Or</span>
             </div>
           </div>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
+              <>
+                <div>
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your username"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Enter your phone number"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="email">Email (optional)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                  />
+                </div>
+              </>
+            )}
+
+            {!isSignUp && (
               <div>
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="identifier">Email or phone</Label>
                 <Input
-                  id="username"
+                  id="identifier"
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="Enter your email or phone number"
                   required
                 />
               </div>
             )}
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-              />
-            </div>
+
             <div>
               <Label htmlFor="password">Password</Label>
               <Input
@@ -210,6 +249,7 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
                 required
               />
             </div>
+
             {isSignUp && (
               <div>
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -223,30 +263,16 @@ const LoginDialog = ({ open, onOpenChange, trigger }) => {
                 />
               </div>
             )}
+
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading 
-                ? (isSignUp ? 'Creating account...' : 'Signing in...') 
-                : (isSignUp ? 'Create Account' : 'Sign In')
-              }
+              {isLoading
+                ? (isSignUp ? 'Creating account...' : 'Signing in...')
+                : (isSignUp ? 'Create Account' : 'Sign In')}
             </Button>
-            
-            {/* {!isSignUp && (
-              <p className="text-sm text-grey-600 text-center">
-                Demo: Use admin@agri.com for admin access, or any email/password for user
-              </p>
-            )} */}
-            
+
             <div className="text-center">
-              <Button 
-                type="button" 
-                variant="link" 
-                onClick={toggleMode}
-                className="text-sm"
-              >
-                {isSignUp 
-                  ? "Already have an account? Sign In" 
-                  : "Don't have an account? Sign Up"
-                }
+              <Button type="button" variant="link" onClick={toggleMode} className="text-sm">
+                {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
               </Button>
             </div>
           </form>
