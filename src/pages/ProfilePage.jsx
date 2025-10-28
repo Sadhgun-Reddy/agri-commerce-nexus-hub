@@ -203,10 +203,7 @@ const ProfilePage = () => {
                       <User className="w-4 h-4 mr-2" />
                       Personal Info
                     </Button>
-                    <Button variant="ghost" className="w-full justify-start">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Account Settings
-                    </Button>
+
                     <Button
                       variant="ghost"
                       className="w-full justify-start text-red-600 hover:text-red-700"
