@@ -509,7 +509,7 @@ const addToCart = async (product) => {
     return orders;
   };
 
-  // UPDATE PRODUCT with FormData support
+  // ✅ FIXED: UPDATE PRODUCT with correct field mapping
   const updateProduct = async (productId, productData) => {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('Authentication required');
@@ -517,64 +517,36 @@ const addToCart = async (product) => {
     try {
       const formData = new FormData();
 
-      // Append all text fields
-      if (productData.productName || productData.name) {
-        formData.append('name', productData.productName || productData.name);
-      }
-      if (productData.sku || productData.SKU) {
-        formData.append('sku', productData.sku || productData.SKU);
-      }
-      if (productData.price) {
-        formData.append('price', productData.price.toString());
-      }
-      if (productData.originalPrice) {
-        formData.append('originalPrice', productData.originalPrice.toString());
-      }
-      if (productData.category) {
-        formData.append('category', productData.category);
-      }
-      if (productData.brand) {
-        formData.append('brand', productData.brand);
-      }
-      if (productData.quantity !== undefined) {
-        formData.append('quantity', productData.quantity.toString());
-      }
-      if (productData.description) {
-        formData.append('description', productData.description);
-      }
-      if (productData.rating) {
-        formData.append('rating', productData.rating.toString());
-      }
-      if (productData.reviewCounts || productData.reviews) {
-        formData.append('reviewCounts', (productData.reviewCounts || productData.reviews).toString());
-      }
-      if (productData.discount) {
-        formData.append('discount', productData.discount.toString());
-      }
-      if (productData.badge) {
-        formData.append('badge', productData.badge);
-      }
-      if (productData.inStock !== undefined) {
-        formData.append('inStock', productData.inStock.toString());
-      }
-      if (productData.youtubeUrl) {
-        formData.append('youtubeUrl', productData.youtubeUrl);
-      }
+      // Append all text fields with correct field names
+      formData.append('productName', productData.productName || productData.name || '');
+      formData.append('SKU', productData.SKU || productData.sku || '');
+      formData.append('price', productData.price?.toString() || '0');
+      formData.append('originalPrice', productData.originalPrice?.toString() || productData.price?.toString() || '0');
+      formData.append('category', productData.category || '');
+      formData.append('brand', productData.brand || '');
+      formData.append('quantity', productData.quantity?.toString() || '0');
+      formData.append('description', productData.description || '');
+      formData.append('rating', productData.rating?.toString() || '4.0');
+      formData.append('reviewCounts', productData.reviewCounts?.toString() || productData.reviews?.toString() || '0');
+      formData.append('discount', productData.discount?.toString() || '0');
+      formData.append('badge', productData.badge || '');
+      formData.append('inStock', productData.inStock?.toString() || 'true');
+      formData.append('youtubeUrl', productData.youtubeUrl || ''); // ✅ FIXED: Added youtubeUrl
 
       // Handle categories array
       if (productData.categories && Array.isArray(productData.categories)) {
         formData.append('categories', JSON.stringify(productData.categories));
       }
 
-      // ✅ FIXED: Handle images properly
-      if (productData.imageFiles && productData.imageFiles.length > 0) {
+      // ✅ FIXED: Handle images properly - use newImages from ProductForm
+      if (productData.newImages && productData.newImages.length > 0) {
         // User uploaded new images
-        productData.imageFiles.forEach(file => {
+        productData.newImages.forEach(file => {
           formData.append('images', file);
         });
       } else if (productData.existingImages && productData.existingImages.length > 0) {
-        // Keep existing images - send as JSON string
-        formData.append('images', JSON.stringify(productData.existingImages));
+        // Keep existing images - send as array
+        formData.append('existingImages', JSON.stringify(productData.existingImages));
       }
 
       const response = await axios.put(
@@ -616,7 +588,6 @@ const addToCart = async (product) => {
     }
   };
 
-
   // ✅ DELETE PRODUCT
   const deleteProduct = async (productId) => {
     const token = localStorage.getItem('authToken');
@@ -653,7 +624,7 @@ const addToCart = async (product) => {
     }
   };
 
-  // ✅ ADD PRODUCT with FormData support
+  // ✅ FIXED: ADD PRODUCT with correct field mapping
   const addProduct = async (productData) => {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -663,12 +634,12 @@ const addToCart = async (product) => {
     try {
       const formData = new FormData();
       
-      // Append required and optional fields
-      formData.append('productName', productData.productName || productData.name);
-      formData.append('SKU', productData.SKU || productData.sku);
-      formData.append('price', productData.price.toString());
-      formData.append('originalPrice', (productData.originalPrice || productData.price).toString());
-      formData.append('category', productData.category);
+      // ✅ FIXED: Append all fields with correct names including youtubeUrl
+      formData.append('productName', productData.productName || productData.name || '');
+      formData.append('SKU', productData.SKU || productData.sku || '');
+      formData.append('price', productData.price?.toString() || '0');
+      formData.append('originalPrice', (productData.originalPrice || productData.price)?.toString() || '0');
+      formData.append('category', productData.category || '');
       formData.append('brand', productData.brand || '');
       formData.append('quantity', (productData.quantity || 0).toString());
       formData.append('description', productData.description || '');
@@ -677,10 +648,11 @@ const addToCart = async (product) => {
       formData.append('discount', (productData.discount || 0).toString());
       formData.append('badge', productData.badge || '');
       formData.append('inStock', (productData.inStock !== undefined ? productData.inStock : true).toString());
+      formData.append('youtubeUrl', productData.youtubeUrl || ''); // ✅ FIXED: Added youtubeUrl
 
-      // Handle image files
-      if (productData.imageFiles && productData.imageFiles.length > 0) {
-        productData.imageFiles.forEach((file) => {
+      // ✅ FIXED: Handle image files - use newImages from ProductForm
+      if (productData.newImages && productData.newImages.length > 0) {
+        productData.newImages.forEach((file) => {
           formData.append('images', file);
         });
       }
