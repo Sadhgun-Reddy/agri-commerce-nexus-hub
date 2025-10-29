@@ -1,3 +1,4 @@
+// src/pages/AdminPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Package, ShoppingCart, Users, Settings, Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -8,35 +9,83 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
-import ProductForm from '@/components/admin/ProductForm.jsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from '@/components/ui/alert-dialog';
+
+// Centralized URLs
+import { URLS } from '@/Urls.jsx';
+
+// Use your existing context only for PRODUCTS
+import { useApp } from '@/contexts/AppContext.jsx';
+
+// Dev-only guards to avoid double fetch under React 18 StrictMode in development
+let DEV_ORDERS_FETCHED_ONCE = false;
+let DEV_PRODUCTS_FETCHED_ONCE = false;
+
+// Delivery status options
+const DELIVERY_STATUS_OPTIONS = [
+  { value: 'placed', label: 'Order Placed' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'shipped', label: 'Order Shipped' },
+  { value: 'delivered', label: 'Delivered' },
+];
+
+const normalizeDeliveryStatus = (status, fallbackStatus) => {
+  const s = (status || '').toLowerCase();
+  if (['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'].includes(s)) return s;
+  if ((fallbackStatus || '').toLowerCase() === 'created') return 'placed';
+  return 'placed';
+};
+
+const labelFromDeliveryStatus = (status) => {
+  const found = DELIVERY_STATUS_OPTIONS.find((o) => o.value === status);
+  if (found) return found.label;
+  if (status === 'cancelled') return 'Cancelled';
+  return 'Order Placed';
+};
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'placed': return 'bg-yellow-500';
+    case 'confirmed': return 'bg-blue-500';
+    case 'shipped': return 'bg-purple-500';
+    case 'delivered': return 'bg-green-500';
+    case 'cancelled': return 'bg-red-500';
+    default: return 'bg-gray-500';
+  }
+};
 
 const AdminPage = () => {
   const navigate = useNavigate();
-  const { user, isAuthLoading } = useApp();
+  const { toast } = useToast();
+
+  // Toggle: Orders / Products
   const [activeTab, setActiveTab] = useState('orders');
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [showProductForm, setShowProductForm] = useState(false);
+
+  // Dummy auth for now
+  const [user] = useState({ name: 'Admin', role: 'admin' });
+  const [isAuthLoading] = useState(false);
+
+  // ORDERS via API
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState(null);
+
+  // Local UI for per-order selection and saving
+  const [selectedStatuses, setSelectedStatuses] = useState({});
+  const [savingStatus, setSavingStatus] = useState({}); // { [orderId]: boolean }
+
+  // PRODUCTS via existing context API
+  const { products, fetchProducts, deleteProduct } = useApp();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProductsLoading, setIsProductsLoading] = useState(false);
 
-  const {
-    getAllOrders,
-    updateOrderStatus,
-    products,
-    updateProduct,
-    deleteProduct,
-    addProduct,
-    fetchProducts
-  } = useApp();
-
-  const { toast } = useToast();
-
-  // Security check
+  // Security check (dummy)
   useEffect(() => {
     if (!isAuthLoading && (!user || user.role !== 'admin')) {
       toast({
@@ -48,21 +97,128 @@ const AdminPage = () => {
     }
   }, [user, isAuthLoading, navigate, toast]);
 
-  const orders = getAllOrders();
+  // Fetch ORDERS on mount (guard + abort to prevent double calls in dev StrictMode)
+  useEffect(() => {
+    const controller = new AbortController();
 
-  const handleStatusUpdate = (orderId, newStatus) => {
-    updateOrderStatus(orderId, newStatus);
-    toast({
-      title: "Order Updated",
-      description: `Order status changed to ${newStatus}`,
+    if (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development') {
+      if (DEV_ORDERS_FETCHED_ONCE) {
+        return () => controller.abort();
+      }
+      DEV_ORDERS_FETCHED_ONCE = true;
+    }
+
+    (async () => {
+      setOrdersError(null);
+      setOrdersLoading(true);
+      try {
+        const res = await fetch(URLS.Allorders, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`Failed to load orders: ${res.status}`);
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : Array.isArray(data?.orders) ? data.orders : [];
+        setOrders(list);
+
+        const map = {};
+        list.forEach((o) => {
+          const id = o._id || o.id;
+          const current = normalizeDeliveryStatus(o.deliveryStatus, o.status);
+          if (id) map[id] = current;
+        });
+        setSelectedStatuses(map);
+      } catch (e) {
+        if (e?.name === 'AbortError') return;
+        console.error(e);
+        setOrdersError(e.message || 'Failed to load orders');
+        toast({ title: 'Failed to load orders', description: 'Please try again', variant: 'destructive' });
+      } finally {
+        setOrdersLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [toast]);
+
+  // Fetch PRODUCTS once on mount (no dependency on a changing fetchProducts reference)
+useEffect(() => {
+  const controller = new AbortController();
+
+  if (import.meta.env.DEV) {
+    if (window.__ORDERS_FETCHED_ONCE__) return () => controller.abort();
+    window.__ORDERS_FETCHED_ONCE__ = true;
+  }
+
+  (async () => {
+    setOrdersLoading(true);
+    try {
+      const res = await fetch(URLS.Allorders, { headers: { 'Content-Type': 'application/json' }, signal: controller.signal });
+      if (!res.ok) throw new Error(`Failed to load orders: ${res.status}`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : Array.isArray(data?.orders) ? data.orders : [];
+      setOrders(list);
+      const map = {};
+      list.forEach((o) => {
+        const id = o._id || o.id;
+        map[id] = normalizeDeliveryStatus(o.deliveryStatus, o.status);
+      });
+      setSelectedStatuses(map);
+    } catch (e) {
+      if (e?.name !== 'AbortError') setOrdersError(e.message || 'Failed to load orders');
+    } finally {
+      setOrdersLoading(false);
+    }
+  })();
+
+  return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+  const formatPrice = (price) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
+
+  // ORDERS: Select change (no persist)
+  const handleSelectChange = (orderId, value) => {
+    setSelectedStatuses((prev) => ({ ...prev, [orderId]: value }));
+  };
+
+  // ORDERS: Confirm (persist to backend)
+const handleConfirmStatus = async (order) => {
+  const id = order._id || order.id;
+  const selected = selectedStatuses[id];
+  const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
+  if (!id || !selected || selected === current) return;
+
+  setSavingStatus((p) => ({ ...p, [id]: true }));
+  try {
+    const res = await fetch(URLS.UpdateStatus(id), {
+      method: 'PATCH', // partial update [web:142]
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deliveryStatus: selected }),
     });
-  };
+    if (!res.ok) throw new Error(`Failed to update: ${res.status}`);
+    const data = await res.json();
 
-  const handleProductEdit = (product) => {
-    setEditingProduct(product);
-    setShowProductForm(true);
-  };
+    setOrders((prev) =>
+      prev.map((o) => {
+        const oid = o._id || o.id;
+        return oid === id ? { ...o, ...(data?.order || {}), deliveryStatus: selected } : o;
+      })
+    );
 
+    toast({ title: 'Order Updated', description: `Order status changed to ${labelFromDeliveryStatus(selected)}` });
+  } catch (e) {
+    toast({ title: 'Update failed', description: 'Could not update order status', variant: 'destructive' });
+    setSelectedStatuses((p) => ({ ...p, [id]: current }));
+  } finally {
+    setSavingStatus((p) => ({ ...p, [id]: false }));
+  }
+};
+
+
+  // PRODUCTS: delete via API + refresh
   const handleProductDeleteClick = (product) => {
     setProductToDelete(product);
     setDeleteDialogOpen(true);
@@ -70,59 +226,18 @@ const AdminPage = () => {
 
   const handleProductDeleteConfirm = async () => {
     if (!productToDelete) return;
-
     setIsSubmitting(true);
     try {
       await deleteProduct(productToDelete._id || productToDelete.id);
+      await fetchProducts();
       setDeleteDialogOpen(false);
       setProductToDelete(null);
+      toast({ title: 'Deleted', description: 'Product removed successfully' });
     } catch (error) {
       console.error('Delete error:', error);
+      toast({ title: 'Delete failed', description: 'Could not remove product', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleProductSave = async (productData) => {
-    setIsSubmitting(true);
-    
-    try {
-      if (editingProduct) {
-        // Update existing product
-        await updateProduct(editingProduct._id || editingProduct.id, productData);
-      } else {
-        // Add new product
-        await addProduct(productData);
-      }
-      
-      setShowProductForm(false);
-      setEditingProduct(null);
-      
-      // Refresh products list
-      await fetchProducts();
-    } catch (error) {
-      console.error('Save error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-500';
-      case 'processing': return 'bg-blue-500';
-      case 'shipped': return 'bg-purple-500';
-      case 'delivered': return 'bg-green-500';
-      case 'cancelled': return 'bg-red-500';
-      default: return 'bg-gray-500';
     }
   };
 
@@ -134,10 +249,13 @@ const AdminPage = () => {
     );
   }
 
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || o.total || 0), 0);
+  const uniqueCustomers = new Set(orders.map((o) => o.user || o.userId)).size;
+
   return (
     <div className="min-h-screen flex flex-col bg-grey-50">
       <Header />
-      
+
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
@@ -165,43 +283,39 @@ const AdminPage = () => {
                 <div className="text-2xl font-bold">{orders.length}</div>
               </CardContent>
             </Card>
-            
+
             <Card className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Products</CardTitle>
                 <Package className="h-4 w-4 text-brand-primary-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{products.length}</div>
+                <div className="text-2xl font-bold">{products?.length ?? 0}</div>
               </CardContent>
             </Card>
-            
+
             <Card className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Revenue</CardTitle>
                 <Settings className="h-4 w-4 text-brand-primary-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatPrice(orders.reduce((sum, order) => sum + order.total, 0))}
-                </div>
+                <div className="text-2xl font-bold">{formatPrice(totalRevenue)}</div>
               </CardContent>
             </Card>
-            
+
             <Card className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Customers</CardTitle>
                 <Users className="h-4 w-4 text-brand-primary-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {new Set(orders.map(order => order.userId)).size}
-                </div>
+                <div className="text-2xl font-bold">{uniqueCustomers}</div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Toggle: Orders / Products */}
           <div className="flex space-x-4 mb-6">
             <Button
               variant={activeTab === 'orders' ? 'default' : 'outline'}
@@ -219,17 +333,24 @@ const AdminPage = () => {
             </Button>
           </div>
 
-          {/* Orders Tab */}
+          {/* Orders (API) */}
           {activeTab === 'orders' && (
             <Card>
               <CardHeader>
                 <CardTitle>Order Management</CardTitle>
               </CardHeader>
               <CardContent>
-                {orders.length === 0 ? (
+                {ordersLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-brand-primary-500" />
+                    <span className="ml-3 text-grey-600">Loading orders...</span>
+                  </div>
+                ) : ordersError ? (
+                  <div className="text-center py-12 text-red-600">{ordersError}</div>
+                ) : orders.length === 0 ? (
                   <div className="text-center py-12 text-grey-500">
                     <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-grey-300" />
-                    <p>No orders yet</p>
+                    <p>No orders found</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -239,44 +360,61 @@ const AdminPage = () => {
                           <TableHead>Order ID</TableHead>
                           <TableHead>Customer</TableHead>
                           <TableHead>Total</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead>Delivery Status</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {orders.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell className="font-medium">{order.id}</TableCell>
-                            <TableCell>{order.shippingAddress?.name || 'N/A'}</TableCell>
-                            <TableCell>{formatPrice(order.total)}</TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(order.status)}>
-                                {order.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {new Date(order.createdAt).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                value={order.status}
-                                onValueChange={(value) => handleStatusUpdate(order.id, value)}
-                              >
-                                <SelectTrigger className="w-32">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="pending">Pending</SelectItem>
-                                  <SelectItem value="processing">Processing</SelectItem>
-                                  <SelectItem value="shipped">Shipped</SelectItem>
-                                  <SelectItem value="delivered">Delivered</SelectItem>
-                                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {orders.map((order) => {
+                          const id = order._id || order.id;
+                          const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
+                          const selected = selectedStatuses[id] ?? current;
+                          const isSaving = !!savingStatus[id];
+                          const isUnchanged = selected === current;
+
+                          return (
+                            <TableRow key={id}>
+                              <TableCell className="font-medium">{id}</TableCell>
+                              <TableCell>{order?.address?.fullName || order?.shippingAddress?.name || 'N/A'}</TableCell>
+                              <TableCell>{formatPrice(order.amount || order.total || 0)}</TableCell>
+                              <TableCell>
+                                <Badge className={getStatusColor(current)}>
+                                  {labelFromDeliveryStatus(current)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center space-x-2">
+                               <Select value={selected} onValueChange={(v) => setSelectedStatuses((p) => ({ ...p, [id]: v }))}>
+  <SelectTrigger className="w-44"><SelectValue placeholder="Select status" /></SelectTrigger>
+  <SelectContent>
+    {DELIVERY_STATUS_OPTIONS.map((s) => (
+      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+                                  <Button
+                                    variant="default"
+                                    onClick={() => handleConfirmStatus(order)}
+                                    disabled={isUnchanged || isSaving}
+                                    className="bg-brand-primary-500 hover:bg-brand-primary-600"
+                                  >
+                                    {isSaving ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Confirming...
+                                      </>
+                                    ) : (
+                                      'Confirm'
+                                    )}
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -285,143 +423,125 @@ const AdminPage = () => {
             </Card>
           )}
 
-          {/* Products Tab */}
+          {/* Products (API via context) */}
           {activeTab === 'products' && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Product Management</CardTitle>
-                <Dialog open={showProductForm} onOpenChange={setShowProductForm}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      onClick={() => {
-                        setEditingProduct(null);
-                        setShowProductForm(true);
-                      }}
-                      className="bg-brand-primary-500 hover:bg-brand-primary-600"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Product
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-3xl max-h-[90vh]">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editingProduct ? 'Edit Product' : 'Add New Product'}
-                      </DialogTitle>
-                      <DialogDescription>
-                        {editingProduct 
-                          ? 'Update product information and images' 
-                          : 'Fill in the product details and upload images'}
-                      </DialogDescription>
-                    </DialogHeader>
-                    {isSubmitting ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-brand-primary-500" />
-                        <span className="ml-3 text-grey-600">
-                          {editingProduct ? 'Updating...' : 'Adding...'}
-                        </span>
-                      </div>
-                    ) : (
-                      <ProductForm
-                        product={editingProduct}
-                        onSave={handleProductSave}
-                        onCancel={() => {
-                          setShowProductForm(false);
-                          setEditingProduct(null);
-                        }}
-                      />
-                    )}
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                {products.length === 0 ? (
-                  <div className="text-center py-12 text-grey-500">
-                    <Package className="w-12 h-12 mx-auto mb-3 text-grey-300" />
-                    <p>No products available</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Image</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Price</TableHead>
-                          <TableHead>Stock</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {products.map((product) => (
-                          <TableRow key={product._id || product.id}>
-                            <TableCell>
-                              <img
-                                src={product.image || (product.images && product.images[0]) || '/placeholder.jpg'}
-                                alt={product.name || product.productName}
-                                className="w-12 h-12 object-cover rounded border border-grey-200"
-                                onError={(e) => {
-                                  e.target.src = '/placeholder.jpg';
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {product.name || product.productName}
-                            </TableCell>
-                            <TableCell>{product.category}</TableCell>
-                            <TableCell>{formatPrice(product.price)}</TableCell>
-                            <TableCell>
-                              <Badge variant={product.inStock ? 'default' : 'destructive'}>
-                                {product.inStock ? 'In Stock' : 'Out of Stock'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleProductEdit(product)}
-                                  className="hover:bg-brand-primary-50"
-                                >
-                                  <Edit2 className="w-4 h-4 text-brand-primary-600" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleProductDeleteClick(product)}
-                                  className="hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </Button>
-                              </div>
-                            </TableCell>
+            <div className="mt-0">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Products</CardTitle>
+                  <Button disabled className="opacity-60 cursor-not-allowed">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Product
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {isProductsLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-brand-primary-500" />
+                      <span className="ml-3 text-grey-600">Loading products...</span>
+                    </div>
+                  ) : !products || products.length === 0 ? (
+                    <div className="text-center py-12 text-grey-500">
+                      <Package className="w-12 h-12 mx-auto mb-3 text-grey-300" />
+                      <p>No products available</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Image</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Stock</TableHead>
+                            <TableHead>Actions</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {products.map((product) => (
+                            <TableRow key={product._id || product.id}>
+                              <TableCell>
+                                <img
+                                  src={product.image || (Array.isArray(product.image) ? product.image[0] : '') || '/placeholder.jpg'}
+                                  alt={product.name || product.productName || 'Product'}
+                                  className="w-12 h-12 object-cover rounded border border-grey-200"
+                                  onError={(e) => { e.currentTarget.src = '/placeholder.jpg'; }}
+                                />
+                              </TableCell>
+                              <TableCell className="font-medium">{product.name || product.productName}</TableCell>
+                              <TableCell>{product.category}</TableCell>
+                              <TableCell>{formatPrice(product.price)}</TableCell>
+                              <TableCell>
+                                <Badge variant={product.inStock ? 'default' : 'destructive'}>
+                                  {product.inStock ? 'In Stock' : 'Out of Stock'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled
+                                    className="opacity-50 cursor-not-allowed"
+                                    title="Edit coming soon"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setProductToDelete(product);
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                    className="hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </main>
-      
-      {/* Delete Confirmation Dialog */}
+
+      {/* Delete Confirmation Dialog (Products via API) */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the product "{productToDelete?.name || productToDelete?.productName}".
-              This action cannot be undone.
+              This will remove the product "{productToDelete?.name || productToDelete?.productName}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleProductDeleteConfirm}
+              onClick={async () => {
+                if (!productToDelete) return;
+                setIsSubmitting(true);
+                try {
+                  await deleteProduct(productToDelete._id || productToDelete.id);
+                  await fetchProducts();
+                  setDeleteDialogOpen(false);
+                  setProductToDelete(null);
+                  toast({ title: 'Deleted', description: 'Product removed successfully' });
+                } catch (error) {
+                  console.error('Delete error:', error);
+                  toast({ title: 'Delete failed', description: 'Could not remove product', variant: 'destructive' });
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
               disabled={isSubmitting}
               className="bg-red-600 hover:bg-red-700"
             >
@@ -437,7 +557,7 @@ const AdminPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       <Footer />
     </div>
   );
