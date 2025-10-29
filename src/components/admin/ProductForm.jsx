@@ -180,53 +180,17 @@ const ProductForm = ({ product, onSave, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Prepare submission data with proper number types and field names
-      const submitData = {
-        // Primary fields
-        name: formData.name.trim(),
-        productName: formData.name.trim(), // Legacy field
-        price: parseFloat(formData.price),
-        originalPrice: formData.originalPrice ? parseFloat(formData.originalPrice) : parseFloat(formData.price),
-        category: formData.category,
-        brand: formData.brand.trim(),
-        sku: formData.sku.trim(),
-        SKU: formData.sku.trim(), // Legacy field
-        inStock: Boolean(formData.inStock),
-        rating: parseFloat(formData.rating) || 0,
-        reviewCount: parseInt(formData.reviewCount) || 0,
-        reviewCounts: parseInt(formData.reviewCount) || 0, // Legacy field
-        reviews: parseInt(formData.reviewCount) || 0, // Legacy field
-        discount: parseFloat(formData.discount) || 0,
-        badge: formData.badge.trim(),
-        quantity: parseInt(formData.quantity) || 0,
-        description: formData.description.trim(),
-        youtubeUrl: formData.youtubeUrl.trim(),
-        
-        // Image handling - ensure we have at least the existing images
-        images: images.filter(img => !img.isNew).map(img => img.url),
-        image: images.filter(img => !img.isNew).map(img => img.url)[0] || '', // Legacy single image field
-      };
-
-      // If there are new images, include them separately for upload
-      const newImageFiles = images.filter(img => img.isNew).map(img => img.file);
-      if (newImageFiles.length > 0) {
-        submitData.newImages = newImageFiles;
-      }
-
-      await onSave(submitData);
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      setErrors({ submit: error.message || 'Failed to save product. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Prepare data with both existing and new images
+    const submitData = {
+      ...formData,
+      // Send new image files if any
+      newImageFiles: newImageFiles.length > 0 ? newImageFiles : undefined,
+      // Send existing images URLs
+      existingImages: existingImages.length > 0 ? existingImages : undefined,
+       youtubeUrl: formData.youtubeUrl 
+    };
+    
+    onSave(submitData);
   };
 
   const handleChange = (field, value) => {
@@ -450,22 +414,17 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="youtubeUrl">YouTube URL</Label>
-        <Input
-          id="youtubeUrl"
-          name="youtubeUrl"
-          type="url"
-          value={formData.youtubeUrl}
-          onChange={handleInputChange}
-          placeholder="https://www.youtube.com/watch?v=..."
-          aria-invalid={!!errors.youtubeUrl}
-          aria-describedby={errors.youtubeUrl ? 'youtube-error' : undefined}
-        />
-        {errors.youtubeUrl && (
-          <p id="youtube-error" className="text-sm text-red-500 mt-1">{errors.youtubeUrl}</p>
-        )}
-      </div>
+     <div>
+  <Label htmlFor="youtubeUrl">YouTube URL</Label>
+  <Input
+    id="youtubeUrl"
+    type="url"
+    value={formData.youtubeUrl}
+    onChange={(e) => handleChange('youtubeUrl', e.target.value)}
+    placeholder="https://www.youtube.com/watch?v=..."
+  />
+</div>
+
 
       <div>
         <Label htmlFor="description">Description</Label>

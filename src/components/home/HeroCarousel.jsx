@@ -17,16 +17,17 @@ const HeroCarousel = () => {
       image: "https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2069&q=80",
       gradient: "from-brand-primary-500/90 to-brand-primary-600/90"
     },
+
     {
-      id: 2,
-      title: "Irrigation Systems",
-      subtitle: "Smart Water Management Solutions",
-      description: "Advanced drip irrigation and sprinkler systems to optimize water usage and maximize crop yield.",
-      cta: "Explore Systems",
-      ctaLink: "",
-      image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
-      gradient: "from-blue-500/90 to-blue-600/90"
-    },
+    id: 2,
+    title: "Watch Our Farming Guide",
+    subtitle: "",
+    description: "",
+    cta: "",
+    ctaLink: "",
+    video: "https://www.youtube.com/embed/3KjCZIOzQi8?si=fPlRpBlHLa_6Pxwn"
+  }
+   ,
     {
       id: 3,
       title: "Seeds & Fertilizers",
@@ -36,15 +37,29 @@ const HeroCarousel = () => {
       ctaLink: "",
       image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2069&q=80",
       gradient: "from-green-500/90 to-green-600/90"
-    }
+    },
+       {
+    id: 4,
+    title: "Watch Our Farming Guide",
+    subtitle: "",
+    description: "",
+    cta: "",
+    ctaLink: "",
+    video: "https://www.youtube.com/embed/lnYiBBS0YaA?si=Wg2ZOHhFmqZ7YkiO"
+  }
   ];
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [slides.length]);
+useEffect(() => {
+  const timer = setInterval(() => {
+    setCurrentSlide((prev) => {
+      // pause auto-slide if current slide has a video
+      if (slides[prev].video) return prev;
+      return (prev + 1) % slides.length;
+    });
+  }, 3000);
+
+  return () => clearInterval(timer);
+}, [slides]);
 
   const goToSlide = (index) => {
     setCurrentSlide(index);
@@ -65,43 +80,54 @@ const HeroCarousel = () => {
         className="flex transition-transform duration-500 ease-in-out h-full"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {slides.map((slide) => (
-          <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
-            <div 
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: `url(${slide.image})` }}
-            />
-            <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient}`} />
-            
-            <div className="relative h-full flex items-center">
-              <div className="container mx-auto px-4">
-                <div className="max-w-2xl text-white">
-                  <div className="space-y-6 animate-fade-in">
-                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                      {slide.title}
-                    </h1>
-                    <h2 className="text-xl md:text-2xl lg:text-3xl font-medium opacity-90">
-                      {slide.subtitle}
-                    </h2>
-                    <p className="text-lg md:text-xl opacity-80 max-w-xl">
-                      {slide.description}
-                    </p>
-                    <div className="pt-4">
-                      <Link to={slide.ctaLink}>
-                        {/* <Button 
-                          size="lg" 
-                          className="bg-white text-grey-800 hover:bg-grey-100 px-8 py-3 text-lg font-semibold"
-                        >
-                          {slide.cta}
-                        </Button> */}
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+{slides.map((slide) => (
+  <div key={slide.id} className="w-full h-full flex-shrink-0 relative flex justify-center items-center">
+    {slide.video ? (
+      <div className="relative w-full h-full rounded-16 overflow-hidden border-4 border-white bg-gray-900/30">
+        <iframe
+          className="w-full h-full"
+          src={slide.video}
+          title="YouTube video player"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        ></iframe>
+        <div className="absolute inset-0 border-4 border-white rounded-16 pointer-events-none" />
+      </div>
+    ) : (
+      <>
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat rounded-16"
+          style={{ backgroundImage: `url(${slide.image})` }}
+        />
+        <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} rounded-16`} />
+        
+        <div className="relative h-full flex items-center">
+          <div className="container mx-auto px-4">
+            <div className="max-w-2xl text-white">
+              <div className="space-y-6 animate-fade-in">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+                  {slide.title}
+                </h1>
+                {slide.subtitle && (
+                  <h2 className="text-xl md:text-2xl lg:text-3xl font-medium opacity-90">
+                    {slide.subtitle}
+                  </h2>
+                )}
+                {slide.description && (
+                  <p className="text-lg md:text-xl opacity-80 max-w-xl">
+                    {slide.description}
+                  </p>
+                )}
               </div>
             </div>
           </div>
-        ))}
+        </div>
+      </>
+    )}
+  </div>
+))}
+
       </div>
 
       {/* Navigation Arrows */}

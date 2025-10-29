@@ -33,6 +33,10 @@ export const AppProvider = ({ children }) => {
 
   const getWishlistStorageKey = (uid) => `wishlist:${uid}`;
 
+
+
+
+
   useEffect(() => {
     if (user?.id) {
       localStorage.setItem(getWishlistStorageKey(user.id), JSON.stringify(wishlistItems));
@@ -707,6 +711,16 @@ const addToCart = async (product) => {
   };
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+    useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      fetchProfile();
+      fetchCartItems();
+      fetchWishlist();
+      fetchOrders();
+    }
+  }, []);
 
   return (
     <AppContext.Provider value={{

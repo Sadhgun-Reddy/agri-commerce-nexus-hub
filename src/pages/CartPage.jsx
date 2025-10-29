@@ -7,6 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Link } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext.jsx';
 
+
+// ...imports unchanged
+
 const CartPage = () => {
   const { cartItems, updateQuantity, removeFromCart, user, loadCartFromServer } = useApp();
   const [loading, setLoading] = useState(true);
@@ -20,13 +23,11 @@ const CartPage = () => {
     }
   }, [user]);
 
+  // Only subtotal here
   const subtotal = cartItems.reduce(
     (sum, item) => sum + (item.product?.price || 0) * item.quantity,
     0
   );
-  const shipping = subtotal > 50000 ? 0 : 500;
-  const tax = subtotal * 0.18;
-  const total = subtotal + shipping + tax;
 
   const formatPrice = (price) =>
     new Intl.NumberFormat('en-IN', {
@@ -90,7 +91,7 @@ const CartPage = () => {
                         <Button
                           variant="outline"
                           size="icon"
-                           onClick={() => updateQuantity(product._id, "decrement")}
+                          onClick={() => updateQuantity(product._id, "decrement")}
                           disabled={item.quantity <= 1}
                         >
                           <Minus className="w-4 h-4" />
@@ -118,22 +119,18 @@ const CartPage = () => {
             })}
           </div>
 
-          {/* Order Summary */}
+          {/* Summary: only subtotal */}
           <div>
             <Card>
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
-                <div className="flex justify-between"><span>Shipping</span><span>{shipping > 0 ? formatPrice(shipping) : 'Free'}</span></div>
-                <div className="flex justify-between"><span>Tax (GST 18%)</span><span>{formatPrice(tax)}</span></div>
-                <div className="border-t pt-4">
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total</span>
-                    <span>{formatPrice(total)}</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span className="font-bold">{formatPrice(subtotal)}</span>
                 </div>
+
                 <Link to="/checkout">
                   <Button className="w-full" size="lg">Proceed to Checkout</Button>
                 </Link>
