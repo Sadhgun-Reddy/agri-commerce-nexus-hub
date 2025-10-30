@@ -21,10 +21,6 @@ import { URLS } from '@/Urls.jsx';
 // Use your existing context only for PRODUCTS
 import { useApp } from '@/contexts/AppContext.jsx';
 
-// Dev-only guards to avoid double fetch under React 18 StrictMode in development
-let DEV_ORDERS_FETCHED_ONCE = false;
-let DEV_PRODUCTS_FETCHED_ONCE = false;
-
 // Delivery status options
 const DELIVERY_STATUS_OPTIONS = [
   { value: 'placed', label: 'Order Placed' },
@@ -35,15 +31,16 @@ const DELIVERY_STATUS_OPTIONS = [
 
 const normalizeDeliveryStatus = (status, fallbackStatus) => {
   const s = (status || '').toLowerCase();
-  if (['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'].includes(s)) return s;
+  if (['placed', 'confirmed', 'shipped', 'delivered', 'cancelled', 'processing'].includes(s)) return s;
   if ((fallbackStatus || '').toLowerCase() === 'created') return 'placed';
-  return 'placed';
+  return 'processing';
 };
 
 const labelFromDeliveryStatus = (status) => {
   const found = DELIVERY_STATUS_OPTIONS.find((o) => o.value === status);
   if (found) return found.label;
   if (status === 'cancelled') return 'Cancelled';
+  if (status === 'processing') return 'Processing';
   return 'Order Placed';
 };
 
@@ -54,6 +51,7 @@ const getStatusColor = (status) => {
     case 'shipped': return 'bg-purple-500';
     case 'delivered': return 'bg-green-500';
     case 'cancelled': return 'bg-red-500';
+    case 'processing': return 'bg-orange-500';
     default: return 'bg-gray-500';
   }
 };
@@ -76,14 +74,18 @@ const AdminPage = () => {
 
   // Local UI for per-order selection and saving
   const [selectedStatuses, setSelectedStatuses] = useState({});
-  const [savingStatus, setSavingStatus] = useState({}); // { [orderId]: boolean }
+  const [savingStatus, setSavingStatus] = useState({});
 
-  // PRODUCTS via existing context API
-  const { products, fetchProducts, deleteProduct } = useApp();
+  // ✅ FIXED: Get products from context WITHOUT calling fetchProducts
+  const { products, deleteProduct } = useApp();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isProductsLoading, setIsProductsLoading] = useState(false);
+
+  // Get token from localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('authToken');
+  };
 
   // Security check (dummy)
   useEffect(() => {
@@ -97,145 +99,179 @@ const AdminPage = () => {
     }
   }, [user, isAuthLoading, navigate, toast]);
 
-  // Fetch ORDERS on mount (guard + abort to prevent double calls in dev StrictMode)
+  // Fetch ORDERS on mount - Only once
   useEffect(() => {
     const controller = new AbortController();
+    let isMounted = true;
 
-    if (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development') {
-      if (DEV_ORDERS_FETCHED_ONCE) {
-        return () => controller.abort();
-      }
-      DEV_ORDERS_FETCHED_ONCE = true;
-    }
-
-    (async () => {
+    const fetchOrders = async () => {
       setOrdersError(null);
       setOrdersLoading(true);
+      
+      const token = getAuthToken();
+      
+      if (!token) {
+        setOrdersError('No authentication token found');
+        setOrdersLoading(false);
+        toast({ 
+          title: 'Authentication Error', 
+          description: 'Please log in again', 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
       try {
         const res = await fetch(URLS.Allorders, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           signal: controller.signal,
         });
-        if (!res.ok) throw new Error(`Failed to load orders: ${res.status}`);
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : Array.isArray(data?.orders) ? data.orders : [];
-        setOrders(list);
 
-        const map = {};
-        list.forEach((o) => {
-          const id = o._id || o.id;
-          const current = normalizeDeliveryStatus(o.deliveryStatus, o.status);
-          if (id) map[id] = current;
-        });
-        setSelectedStatuses(map);
+        if (!res.ok) {
+          throw new Error(`Failed to load orders: ${res.status}`);
+        }
+
+        const data = await res.json();
+        
+        if (!isMounted) return;
+
+        if (data.success) {
+          const list = Array.isArray(data.orders) ? data.orders : [];
+          setOrders(list);
+
+          // Initialize selected statuses
+          const map = {};
+          list.forEach((o) => {
+            const id = o._id || o.id;
+            const current = normalizeDeliveryStatus(o.deliveryStatus, o.status);
+            if (id) map[id] = current;
+          });
+          setSelectedStatuses(map);
+        } else {
+          throw new Error(data.message || 'Failed to fetch orders');
+        }
       } catch (e) {
         if (e?.name === 'AbortError') return;
-        console.error(e);
-        setOrdersError(e.message || 'Failed to load orders');
-        toast({ title: 'Failed to load orders', description: 'Please try again', variant: 'destructive' });
+        console.error('Fetch orders error:', e);
+        if (isMounted) {
+          setOrdersError(e.message || 'Failed to load orders');
+          toast({ 
+            title: 'Failed to load orders', 
+            description: e.message || 'Please try again', 
+            variant: 'destructive' 
+          });
+        }
       } finally {
-        setOrdersLoading(false);
+        if (isMounted) {
+          setOrdersLoading(false);
+        }
       }
-    })();
+    };
 
-    return () => controller.abort();
-  }, [toast]);
+    fetchOrders();
 
-  // Fetch PRODUCTS once on mount (no dependency on a changing fetchProducts reference)
-useEffect(() => {
-  const controller = new AbortController();
-
-  if (import.meta.env.DEV) {
-    if (window.__ORDERS_FETCHED_ONCE__) return () => controller.abort();
-    window.__ORDERS_FETCHED_ONCE__ = true;
-  }
-
-  (async () => {
-    setOrdersLoading(true);
-    try {
-      const res = await fetch(URLS.Allorders, { headers: { 'Content-Type': 'application/json' }, signal: controller.signal });
-      if (!res.ok) throw new Error(`Failed to load orders: ${res.status}`);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : Array.isArray(data?.orders) ? data.orders : [];
-      setOrders(list);
-      const map = {};
-      list.forEach((o) => {
-        const id = o._id || o.id;
-        map[id] = normalizeDeliveryStatus(o.deliveryStatus, o.status);
-      });
-      setSelectedStatuses(map);
-    } catch (e) {
-      if (e?.name !== 'AbortError') setOrdersError(e.message || 'Failed to load orders');
-    } finally {
-      setOrdersLoading(false);
-    }
-  })();
-
-  return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once
 
   const formatPrice = (price) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
+    new Intl.NumberFormat('en-IN', { 
+      style: 'currency', 
+      currency: 'INR', 
+      maximumFractionDigits: 0 
+    }).format(price);
 
-  // ORDERS: Select change (no persist)
-  const handleSelectChange = (orderId, value) => {
-    setSelectedStatuses((prev) => ({ ...prev, [orderId]: value }));
+  // ORDERS: Confirm status change (persist to backend)
+  const handleConfirmStatus = async (order) => {
+    const id = order._id || order.id;
+    const selected = selectedStatuses[id];
+    const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
+    
+    if (!id || !selected || selected === current) return;
+
+    const token = getAuthToken();
+    
+    if (!token) {
+      toast({ 
+        title: 'Authentication Error', 
+        description: 'Please log in again', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    setSavingStatus((p) => ({ ...p, [id]: true }));
+    
+    try {
+      const res = await fetch(URLS.UpdateStatus(id), {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ deliveryStatus: selected }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to update: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Update local state
+        setOrders((prev) =>
+          prev.map((o) => {
+            const oid = o._id || o.id;
+            return oid === id ? { ...o, deliveryStatus: selected } : o;
+          })
+        );
+
+        toast({ 
+          title: 'Order Updated', 
+          description: `Order status changed to ${labelFromDeliveryStatus(selected)}` 
+        });
+      } else {
+        throw new Error(data.message || 'Update failed');
+      }
+    } catch (e) {
+      console.error('Update error:', e);
+      toast({ 
+        title: 'Update failed', 
+        description: e.message || 'Could not update order status', 
+        variant: 'destructive' 
+      });
+      // Revert to current status
+      setSelectedStatuses((p) => ({ ...p, [id]: current }));
+    } finally {
+      setSavingStatus((p) => ({ ...p, [id]: false }));
+    }
   };
 
-  // ORDERS: Confirm (persist to backend)
-const handleConfirmStatus = async (order) => {
-  const id = order._id || order.id;
-  const selected = selectedStatuses[id];
-  const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
-  if (!id || !selected || selected === current) return;
-
-  setSavingStatus((p) => ({ ...p, [id]: true }));
-  try {
-    const res = await fetch(URLS.UpdateStatus(id), {
-      method: 'PATCH', // partial update [web:142]
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deliveryStatus: selected }),
-    });
-    if (!res.ok) throw new Error(`Failed to update: ${res.status}`);
-    const data = await res.json();
-
-    setOrders((prev) =>
-      prev.map((o) => {
-        const oid = o._id || o.id;
-        return oid === id ? { ...o, ...(data?.order || {}), deliveryStatus: selected } : o;
-      })
-    );
-
-    toast({ title: 'Order Updated', description: `Order status changed to ${labelFromDeliveryStatus(selected)}` });
-  } catch (e) {
-    toast({ title: 'Update failed', description: 'Could not update order status', variant: 'destructive' });
-    setSelectedStatuses((p) => ({ ...p, [id]: current }));
-  } finally {
-    setSavingStatus((p) => ({ ...p, [id]: false }));
-  }
-};
-
-
-  // PRODUCTS: delete via API + refresh
-  const handleProductDeleteClick = (product) => {
-    setProductToDelete(product);
-    setDeleteDialogOpen(true);
-  };
-
+  // PRODUCTS: delete via API
   const handleProductDeleteConfirm = async () => {
     if (!productToDelete) return;
     setIsSubmitting(true);
     try {
       await deleteProduct(productToDelete._id || productToDelete.id);
-      await fetchProducts();
       setDeleteDialogOpen(false);
       setProductToDelete(null);
       toast({ title: 'Deleted', description: 'Product removed successfully' });
     } catch (error) {
       console.error('Delete error:', error);
-      toast({ title: 'Delete failed', description: 'Could not remove product', variant: 'destructive' });
+      toast({ 
+        title: 'Delete failed', 
+        description: 'Could not remove product', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -250,7 +286,9 @@ const handleConfirmStatus = async (order) => {
   }
 
   const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || o.total || 0), 0);
-  const uniqueCustomers = new Set(orders.map((o) => o.user || o.userId)).size;
+  const uniqueCustomers = new Set(
+    orders.map((o) => o.user?._id || o.user?.id || o.userId).filter(Boolean)
+  ).size;
 
   return (
     <div className="min-h-screen flex flex-col bg-grey-50">
@@ -346,7 +384,15 @@ const handleConfirmStatus = async (order) => {
                     <span className="ml-3 text-grey-600">Loading orders...</span>
                   </div>
                 ) : ordersError ? (
-                  <div className="text-center py-12 text-red-600">{ordersError}</div>
+                  <div className="text-center py-12">
+                    <div className="text-red-600 mb-4">{ordersError}</div>
+                    <Button
+                      onClick={() => window.location.reload()}
+                      className="bg-brand-primary-500 hover:bg-brand-primary-600"
+                    >
+                      Retry
+                    </Button>
+                  </div>
                 ) : orders.length === 0 ? (
                   <div className="text-center py-12 text-grey-500">
                     <ShoppingCart className="w-12 h-12 mx-auto mb-3 text-grey-300" />
@@ -375,25 +421,39 @@ const handleConfirmStatus = async (order) => {
 
                           return (
                             <TableRow key={id}>
-                              <TableCell className="font-medium">{id}</TableCell>
-                              <TableCell>{order?.address?.fullName || order?.shippingAddress?.name || 'N/A'}</TableCell>
+                              <TableCell className="font-medium">
+                                {id?.slice(-8) || 'N/A'}
+                              </TableCell>
+                              <TableCell>
+                                {order?.user?.name || order?.address?.fullName || order?.shippingAddress?.name || 'N/A'}
+                              </TableCell>
                               <TableCell>{formatPrice(order.amount || order.total || 0)}</TableCell>
                               <TableCell>
                                 <Badge className={getStatusColor(current)}>
                                   {labelFromDeliveryStatus(current)}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                              <TableCell>
+                                {new Date(order.createdAt).toLocaleDateString('en-IN')}
+                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center space-x-2">
-                               <Select value={selected} onValueChange={(v) => setSelectedStatuses((p) => ({ ...p, [id]: v }))}>
-  <SelectTrigger className="w-44"><SelectValue placeholder="Select status" /></SelectTrigger>
-  <SelectContent>
-    {DELIVERY_STATUS_OPTIONS.map((s) => (
-      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-    ))}
-  </SelectContent>
-</Select>
+                                  <Select 
+                                    value={selected} 
+                                    onValueChange={(v) => setSelectedStatuses((p) => ({ ...p, [id]: v }))}
+                                    disabled={isSaving}
+                                  >
+                                    <SelectTrigger className="w-44">
+                                      <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {DELIVERY_STATUS_OPTIONS.map((s) => (
+                                        <SelectItem key={s.value} value={s.value}>
+                                          {s.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
 
                                   <Button
                                     variant="default"
@@ -423,7 +483,7 @@ const handleConfirmStatus = async (order) => {
             </Card>
           )}
 
-          {/* Products (API via context) */}
+          {/* Products (from context - no loading needed) */}
           {activeTab === 'products' && (
             <div className="mt-0">
               <Card>
@@ -435,12 +495,7 @@ const handleConfirmStatus = async (order) => {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {isProductsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-brand-primary-500" />
-                      <span className="ml-3 text-grey-600">Loading products...</span>
-                    </div>
-                  ) : !products || products.length === 0 ? (
+                  {!products || products.length === 0 ? (
                     <div className="text-center py-12 text-grey-500">
                       <Package className="w-12 h-12 mx-auto mb-3 text-grey-300" />
                       <p>No products available</p>
@@ -463,13 +518,15 @@ const handleConfirmStatus = async (order) => {
                             <TableRow key={product._id || product.id}>
                               <TableCell>
                                 <img
-                                  src={product.image || (Array.isArray(product.image) ? product.image[0] : '') || '/placeholder.jpg'}
+                                  src={product.image || (Array.isArray(product.images) ? product.images[0] : '') || '/placeholder.jpg'}
                                   alt={product.name || product.productName || 'Product'}
                                   className="w-12 h-12 object-cover rounded border border-grey-200"
                                   onError={(e) => { e.currentTarget.src = '/placeholder.jpg'; }}
                                 />
                               </TableCell>
-                              <TableCell className="font-medium">{product.name || product.productName}</TableCell>
+                              <TableCell className="font-medium">
+                                {product.name || product.productName}
+                              </TableCell>
                               <TableCell>{product.category}</TableCell>
                               <TableCell>{formatPrice(product.price)}</TableCell>
                               <TableCell>
@@ -514,34 +571,20 @@ const handleConfirmStatus = async (order) => {
         </div>
       </main>
 
-      {/* Delete Confirmation Dialog (Products via API) */}
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will remove the product "{productToDelete?.name || productToDelete?.productName}".
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={async () => {
-                if (!productToDelete) return;
-                setIsSubmitting(true);
-                try {
-                  await deleteProduct(productToDelete._id || productToDelete.id);
-                  await fetchProducts();
-                  setDeleteDialogOpen(false);
-                  setProductToDelete(null);
-                  toast({ title: 'Deleted', description: 'Product removed successfully' });
-                } catch (error) {
-                  console.error('Delete error:', error);
-                  toast({ title: 'Delete failed', description: 'Could not remove product', variant: 'destructive' });
-                } finally {
-                  setIsSubmitting(false);
-                }
-              }}
+              onClick={handleProductDeleteConfirm}
               disabled={isSubmitting}
               className="bg-red-600 hover:bg-red-700"
             >

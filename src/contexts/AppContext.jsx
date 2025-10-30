@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { URLS } from '../Urls';
 import { toast } from '@/hooks/use-toast.js';
@@ -33,18 +33,14 @@ export const AppProvider = ({ children }) => {
 
   const getWishlistStorageKey = (uid) => `wishlist:${uid}`;
 
-
-
-
-
   useEffect(() => {
     if (user?.id) {
       localStorage.setItem(getWishlistStorageKey(user.id), JSON.stringify(wishlistItems));
     }
   }, [wishlistItems, user]);
 
-  // ✅ Fetch products from API
-  const fetchProducts = async () => {
+  // ✅ FIXED: Wrap fetchProducts with useCallback to prevent infinite loops
+  const fetchProducts = useCallback(async () => {
     setIsProductsLoading(true);
     setProductsError(null);
     
@@ -73,48 +69,26 @@ export const AppProvider = ({ children }) => {
     } finally {
       setIsProductsLoading(false);
     }
-  };
-
-  // Initialize auth state and fetch products on app load
-  useEffect(() => {
-    const initializeApp = async () => {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        try {
-          const fetchedUser = await fetchUserDetails(token);
-          if (fetchedUser?.id) {
-            await loadWishlistFromServer(token, fetchedUser.id);
-          }
-        } catch (error) {
-          console.error('Failed to initialize auth:', error);
-          clearAuthData();
-        }
-      }
-      setIsAuthLoading(false);
-      await fetchProducts();
-    };
-
-    initializeApp();
-  }, []);
+  }, []); // Empty dependency array since it doesn't depend on any state
 
   // Helper function to clear auth data from localStorage
-  const clearAuthData = () => {
+  const clearAuthData = useCallback(() => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userCart');
-  };
+  }, []);
 
   // Helper function to store user data in localStorage
-  const storeUserData = (userData, cart) => {
+  const storeUserData = useCallback((userData, cart) => {
     if (userData.name) localStorage.setItem('userName', userData.name);
     if (userData.email) localStorage.setItem('userEmail', userData.email);
     if (userData.role) localStorage.setItem('userRole', userData.role);
     if (cart) localStorage.setItem('userCart', JSON.stringify(cart));
-  };
+  }, []);
 
-  const loadCartFromServer = async (token) => {
+  const loadCartFromServer = useCallback(async (token) => {
     try {
       const res = await axios.get(URLS.CartGet, {
         headers: { Authorization: `Bearer ${token}` },
@@ -130,7 +104,7 @@ export const AppProvider = ({ children }) => {
       console.error('Error fetching cart:', error);
       setCartItems([]);
     }
-  };
+  }, []);
 
   const mapCartItem = (item) => ({
     _id: item._id,
@@ -151,7 +125,7 @@ export const AppProvider = ({ children }) => {
   });
 
   // Fetch user details using token
-  const fetchUserDetails = async (token) => {
+  const fetchUserDetails = useCallback(async (token) => {
     try {
       const response = await axios.get(`${URLS.GetProfile}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -162,120 +136,149 @@ export const AppProvider = ({ children }) => {
       
       storeUserData(userData, userCart);
       
-      setUser({
+      const userObj = {
         id: userData._id,
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
         role: userData.role,
-        cart: userCart
-      });
-      
-      return {
-        id: userData._id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-        phone: userData.phone,
         cart: userCart
       };
+      
+      setUser(userObj);
+      
+      return userObj;
     } catch (error) {
       console.error("Profile fetch error:", error);
       if (error.response && (error.response.status === 401 || error.response.data.data?.message === "Invalid or expired token")) {
-        logout();
+        clearAuthData();
+        setUser(null);
       }
       return null;
     }
-  };
+  }, [storeUserData, clearAuthData]);
 
+  const loadWishlistFromServer = useCallback(async (token, userId) => {
+    try {
+      const res = await axios.get(URLS.WishlistGet, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = res.data;
+      const products = Array.isArray(res.data?.data?.products)
+        ? res.data.data.products
+        : (Array.isArray(data?.wishlist?.products) ? data.wishlist.products : []);
 
-const loadWishlistFromServer = async (token, userId) => {
-  try {
-    const res = await axios.get(URLS.WishlistGet, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = res.data;
-    const products = Array.isArray(res.data?.data?.products)
-      ? res.data.data.products
-      : (Array.isArray(data?.wishlist?.products) ? data.wishlist.products : []);
+      if (!products.length || typeof products[0] === 'string') {
+        const local = localStorage.getItem(getWishlistStorageKey(userId));
+        setWishlistItems(local ? JSON.parse(local) : []);
+        return;
+      }
 
-    if (!products.length || typeof products[0] === 'string') {
-      const local = localStorage.getItem(getWishlistStorageKey(userId));
+      const mapped = products.map((product) => ({
+        id: product.id || product._id,
+        _id: product._id || product.id,
+        sku: product.sku || product.SKU,
+        name: product.name || product.productName,
+        price: product.price,
+        image: (product.images && product.images[0]) || product.image,
+        images: product.images,
+        category: product.category || (Array.isArray(product.categories) ? product.categories.join(', ') : undefined),
+        categories: product.categories,
+        rating: product.rating,
+        reviewsCount: product.reviewsCount || product.reviewCounts || product.reviews,
+        originalPrice: product.originalPrice,
+        discount: product.discount,
+        quantity: product.quantity || 0,
+        inStock: product.inStock !== undefined ? product.inStock : (product.quantity || 0) > 0,
+        badge: product.badge,
+        brand: product.brand,
+        description: product.description,
+      }));
+      setWishlistItems(mapped);
+    } catch (error) {
+      console.error('Error loading wishlist:', error);
+      const local = userId ? localStorage.getItem(getWishlistStorageKey(userId)) : null;
       setWishlistItems(local ? JSON.parse(local) : []);
+    }
+  }, []);
+
+  // ✅ FIXED: Initialize auth state and fetch products ONCE on app load
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeApp = async () => {
+      const token = localStorage.getItem('authToken');
+      
+      if (token) {
+        try {
+          const fetchedUser = await fetchUserDetails(token);
+          if (isMounted && fetchedUser?.id) {
+            await loadWishlistFromServer(token, fetchedUser.id);
+            await loadCartFromServer(token);
+          }
+        } catch (error) {
+          console.error('Failed to initialize auth:', error);
+          clearAuthData();
+        }
+      }
+      
+      if (isMounted) {
+        setIsAuthLoading(false);
+        // Fetch products only once during initialization
+        await fetchProducts();
+      }
+    };
+
+    initializeApp();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchUserDetails, loadWishlistFromServer, loadCartFromServer, clearAuthData, fetchProducts]);
+
+  const addToCart = async (product) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      toast({ title: 'Please sign in', variant: 'destructive' });
+      openLoginDialog();
       return;
     }
 
-    const mapped = products.map((product) => ({
-      id: product.id || product._id,
-      _id: product._id || product.id,  // ✅ Include _id for consistency
-      sku: product.sku || product.SKU,
-      name: product.name || product.productName,
-      price: product.price,
-      image: (product.images && product.images[0]) || product.image,
-      images: product.images,
-      category: product.category || (Array.isArray(product.categories) ? product.categories.join(', ') : undefined),
-      categories: product.categories,
-      rating: product.rating,
-      reviewsCount: product.reviewsCount || product.reviewCounts || product.reviews,
-      originalPrice: product.originalPrice,
-      discount: product.discount,
-      quantity: product.quantity || 0,
-      inStock: product.inStock !== undefined ? product.inStock : (product.quantity || 0) > 0,
-      badge: product.badge,
-      brand: product.brand,
-      description: product.description,
-    }));
-    setWishlistItems(mapped);
-  } catch (error) {
-    console.error('Error loading wishlist:', error);
-    const local = userId ? localStorage.getItem(getWishlistStorageKey(userId)) : null;
-    setWishlistItems(local ? JSON.parse(local) : []);
-  }
-};
+    const productInStock = product.inStock !== undefined 
+      ? product.inStock 
+      : (product.quantity || 0) > 0;
 
-const addToCart = async (product) => {
-  const token = localStorage.getItem('authToken');
-  if (!token) {
-    toast({ title: 'Please sign in', variant: 'destructive' });
-    openLoginDialog();
-    return;
-  }
-
-  const productInStock = product.inStock !== undefined 
-    ? product.inStock 
-    : (product.quantity || 0) > 0;
-
-  if (!productInStock) {
-    toast({ 
-      title: 'Out of stock', 
-      description: 'This product is currently unavailable.',
-      variant: 'destructive' 
-    });
-    return;
-  }
-  
-  try {
-    const payload = {
-      productId: product._id || product.id,
-      quantity: 1,
-    };
-    const res = await axios.post(URLS.CartAdd, payload, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!productInStock) {
+      toast({ 
+        title: 'Out of stock', 
+        description: 'This product is currently unavailable.',
+        variant: 'destructive' 
+      });
+      return;
+    }
     
-    const raw = res.data;
-    const updatedCart = raw?.items || [];
-    setCartItems(updatedCart.map(mapCartProduct));
-    toast({ title: 'Added to cart', variant: 'success' });
-  } catch (error) {
-    console.error("Error adding to cart:", error);
-    toast({
-      title: 'Cart error',
-      description: error.response?.data?.message || error.message,
-      variant: 'destructive',
-    });
-  }
-};
+    try {
+      const payload = {
+        productId: product._id || product.id,
+        quantity: 1,
+      };
+      const res = await axios.post(URLS.CartAdd, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      const raw = res.data;
+      const updatedCart = raw?.items || [];
+      setCartItems(updatedCart.map(mapCartProduct));
+      toast({ title: 'Added to cart', variant: 'success' });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast({
+        title: 'Cart error',
+        description: error.response?.data?.message || error.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   const isInWishlist = (idOrSku) => {
     return wishlistItems.some(item => item.id === idOrSku || item.sku === idOrSku);
@@ -513,7 +516,6 @@ const addToCart = async (product) => {
     return orders;
   };
 
-  // ✅ FIXED: UPDATE PRODUCT with correct field mapping
   const updateProduct = async (productId, productData) => {
     const token = localStorage.getItem('authToken');
     if (!token) throw new Error('Authentication required');
@@ -521,7 +523,6 @@ const addToCart = async (product) => {
     try {
       const formData = new FormData();
 
-      // Append all text fields with correct field names
       formData.append('productName', productData.productName || productData.name || '');
       formData.append('SKU', productData.SKU || productData.sku || '');
       formData.append('price', productData.price?.toString() || '0');
@@ -535,21 +536,17 @@ const addToCart = async (product) => {
       formData.append('discount', productData.discount?.toString() || '0');
       formData.append('badge', productData.badge || '');
       formData.append('inStock', productData.inStock?.toString() || 'true');
-      formData.append('youtubeUrl', productData.youtubeUrl || ''); // ✅ FIXED: Added youtubeUrl
+      formData.append('youtubeUrl', productData.youtubeUrl || '');
 
-      // Handle categories array
       if (productData.categories && Array.isArray(productData.categories)) {
         formData.append('categories', JSON.stringify(productData.categories));
       }
 
-      // ✅ FIXED: Handle images properly - use newImages from ProductForm
       if (productData.newImages && productData.newImages.length > 0) {
-        // User uploaded new images
         productData.newImages.forEach(file => {
           formData.append('images', file);
         });
       } else if (productData.existingImages && productData.existingImages.length > 0) {
-        // Keep existing images - send as array
         formData.append('existingImages', JSON.stringify(productData.existingImages));
       }
 
@@ -564,7 +561,6 @@ const addToCart = async (product) => {
         }
       );
 
-      // Update local state
       setProducts(prev =>
         prev.map(product =>
           (product._id === productId || product.id === productId)
@@ -592,7 +588,6 @@ const addToCart = async (product) => {
     }
   };
 
-  // ✅ DELETE PRODUCT
   const deleteProduct = async (productId) => {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -606,7 +601,6 @@ const addToCart = async (product) => {
         }
       });
 
-      // Update local state
       setProducts(prev => prev.filter(product => product._id !== productId && product.id !== productId));
 
       toast({
@@ -628,7 +622,6 @@ const addToCart = async (product) => {
     }
   };
 
-  // ✅ FIXED: ADD PRODUCT with correct field mapping
   const addProduct = async (productData) => {
     const token = localStorage.getItem('authToken');
     if (!token) {
@@ -638,7 +631,6 @@ const addToCart = async (product) => {
     try {
       const formData = new FormData();
       
-      // ✅ FIXED: Append all fields with correct names including youtubeUrl
       formData.append('productName', productData.productName || productData.name || '');
       formData.append('SKU', productData.SKU || productData.sku || '');
       formData.append('price', productData.price?.toString() || '0');
@@ -652,9 +644,8 @@ const addToCart = async (product) => {
       formData.append('discount', (productData.discount || 0).toString());
       formData.append('badge', productData.badge || '');
       formData.append('inStock', (productData.inStock !== undefined ? productData.inStock : true).toString());
-      formData.append('youtubeUrl', productData.youtubeUrl || ''); // ✅ FIXED: Added youtubeUrl
+      formData.append('youtubeUrl', productData.youtubeUrl || '');
 
-      // ✅ FIXED: Handle image files - use newImages from ProductForm
       if (productData.newImages && productData.newImages.length > 0) {
         productData.newImages.forEach((file) => {
           formData.append('images', file);
@@ -672,7 +663,6 @@ const addToCart = async (product) => {
         }
       );
 
-      // Update local state with new product
       const newProduct = response.data.data;
       setProducts(prev => [...prev, {
         ...newProduct,
@@ -686,7 +676,6 @@ const addToCart = async (product) => {
         variant: 'success',
       });
 
-      // Refresh products list
       await fetchProducts();
 
       return newProduct;
@@ -712,15 +701,8 @@ const addToCart = async (product) => {
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      fetchProfile();
-      fetchCartItems();
-      fetchWishlist();
-      fetchOrders();
-    }
-  }, []);
+  // ✅ REMOVED: This was causing the infinite loop!
+  // The duplicate useEffect that was fetching data on every render
 
   return (
     <AppContext.Provider value={{
