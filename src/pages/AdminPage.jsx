@@ -58,6 +58,8 @@ const getStatusColor = (status) => {
   }
 };
 
+
+
 const AdminPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -88,6 +90,8 @@ const AdminPage = () => {
   const getAuthToken = () => {
     return localStorage.getItem('authToken');
   };
+
+  
 
   // Security check (dummy)
   useEffect(() => {
