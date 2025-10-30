@@ -7,6 +7,8 @@ import Footer from '@/components/layout/Footer.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+
+import axios from 'axios';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast.js';
@@ -189,72 +191,68 @@ const AdminPage = () => {
     }).format(price);
 
   // ORDERS: Confirm status change (persist to backend)
-  const handleConfirmStatus = async (order) => {
-    const id = order._id || order.id;
-    const selected = selectedStatuses[id];
-    const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
-    
-    if (!id || !selected || selected === current) return;
 
-    const token = getAuthToken();
-    
-    if (!token) {
-      toast({ 
-        title: 'Authentication Error', 
-        description: 'Please log in again', 
-        variant: 'destructive' 
-      });
-      return;
-    }
+const handleConfirmStatus = async (order) => {
+  const id = order._id || order.id;
+  const selected = selectedStatuses[id];
+  const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
 
-    setSavingStatus((p) => ({ ...p, [id]: true }));
-    
-    try {
-      const res = await fetch(URLS.UpdateStatus(id), {
-        method: 'PATCH',
-        headers: { 
+  if (!id || !selected || selected === current) return;
+
+  const token = getAuthToken();
+  if (!token) {
+    toast({ 
+      title: 'Authentication Error', 
+      description: 'Please log in again', 
+      variant: 'destructive' 
+    });
+    return;
+  }
+
+  setSavingStatus((p) => ({ ...p, [id]: true }));
+
+  try {
+    // ✅ Use PUT and send status in body
+    const res = await axios.put(
+      URLS.UpdateStatus(id),
+      { deliveryStatus: selected },  // ✅ sent in body
+      {
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ deliveryStatus: selected }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to update: ${res.status}`);
       }
+    );
 
-      const data = await res.json();
+    const data = res.data;
 
-      if (data.success) {
-        // Update local state
-        setOrders((prev) =>
-          prev.map((o) => {
-            const oid = o._id || o.id;
-            return oid === id ? { ...o, deliveryStatus: selected } : o;
-          })
-        );
+    if (data.success) {
+      setOrders((prev) =>
+        prev.map((o) => {
+          const oid = o._id || o.id;
+          return oid === id ? { ...o, deliveryStatus: selected } : o;
+        })
+      );
 
-        toast({ 
-          title: 'Order Updated', 
-          description: `Order status changed to ${labelFromDeliveryStatus(selected)}` 
-        });
-      } else {
-        throw new Error(data.message || 'Update failed');
-      }
-    } catch (e) {
-      console.error('Update error:', e);
       toast({ 
-        title: 'Update failed', 
-        description: e.message || 'Could not update order status', 
-        variant: 'destructive' 
+        title: 'Order Updated', 
+        description: `Order status changed to ${labelFromDeliveryStatus(selected)}` 
       });
-      // Revert to current status
-      setSelectedStatuses((p) => ({ ...p, [id]: current }));
-    } finally {
-      setSavingStatus((p) => ({ ...p, [id]: false }));
+    } else {
+      throw new Error(data.message || 'Update failed');
     }
-  };
+  } catch (e) {
+    console.error('Update error:', e);
+    toast({ 
+      title: 'Update failed', 
+      description: e.message || 'Could not update order status', 
+      variant: 'destructive' 
+    });
+    setSelectedStatuses((p) => ({ ...p, [id]: current }));
+  } finally {
+    setSavingStatus((p) => ({ ...p, [id]: false }));
+  }
+};
 
   // PRODUCTS: delete via API
   const handleProductDeleteConfirm = async () => {

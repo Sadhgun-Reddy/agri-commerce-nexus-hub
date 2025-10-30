@@ -19,6 +19,8 @@ export const URLS = {
   UpdateProduct: Url + "api/products/update",
   DeleteProduct: Url + "api/products/delete",
   AddProduct: Url + "api/products/upload",
+   GetProductById: Url + "/api/products/:productId/:id",
+  
   
   // Wishlist 
   WishlistAdd: Url + "api/wishlist/add",
@@ -37,7 +39,7 @@ export const URLS = {
     UserOrders: Url + "api/orders/my-orders",
 
     
-     UpdateStatus: (id) => Url + `api/orders/update-status/${id}`,
+  UpdateStatus: (id) => Url + `api/orders/update-status/${id}`,
    Allorders: Url + "api/orders/all-orders",
     
 };
