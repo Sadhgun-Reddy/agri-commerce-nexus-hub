@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/pages/ProductDetailPage.jsx
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Star, ShoppingCart, Heart, Minus, Plus, ArrowLeft, Share2, 
@@ -16,44 +17,138 @@ import { useToast } from '@/hooks/use-toast.js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { Separator } from '@/components/ui/separator.jsx';
 
+
 const ProductDetailPage = () => {
-  const { sku } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { products, cartItems, addToCart, updateQuantity, removeFromCart, toggleWishlist, isInWishlist } = useApp();
+  const { products, isProductsLoading, cartItems, addToCart, updateQuantity, removeFromCart, toggleWishlist, isInWishlist } = useApp();
   const { toast } = useToast();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
+  const [saved, setSaved] = useState(false);
 
-  const product = products.find(p => p.sku === sku || p.SKU === sku || p._id === sku);
+
+  // ✅ FIXED: Better product lookup with string conversion
+  const product = useMemo(() => {
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return null;
+    }
+    
+    const found = products.find(p => {
+      const productId = String(p._id || p.id);
+      const urlId = String(id);
+      return productId === urlId || p.sku === id || p.SKU === id;
+    });
+    
+    return found || null;
+  }, [products, id]);
+
   const wishlistKey = product ? (product.sku || product.SKU || product._id || product.id) : null;
-  const cartItem = cartItems.find(item => item.id === product?._id);
+  const cartItem = cartItems.find(item => item.product?._id === product?._id || item.id === product?._id);
   const cartQuantity = cartItem?.quantity || 0;
   const isInStock = product && (product.inStock === true || product.inStock === undefined) && (product.quantity || 0) > 0;
 
+// Add this helper function at the top of your component
+const convertYouTubeUrl = (url) => {
+  if (!url) return null;
+  
+  const videoIdMatch = url.match(
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+  );
+  
+  if (videoIdMatch && videoIdMatch[1]) {
+    return `https://www.youtube.com/embed/${videoIdMatch[1]}`;
+  }
+  
+  if (url.includes('youtube.com/embed/')) {
+    return url;
+  }
+  
+  return null;
+};
+
+const productVideos = product 
+  ? [product.youTubeUrl || product.youtubeUrl]
+      .filter(Boolean)
+      .map(convertYouTubeUrl)
+      .filter(Boolean)
+  : [];
+
+
+
   useEffect(() => {
-    if (!product) {
-      navigate('/products');
+    if (product && wishlistKey) {
+      setSaved(isInWishlist(wishlistKey));
     }
-  }, [product, navigate]);
+  }, [product, wishlistKey, isInWishlist]);
+
 
   useEffect(() => {
-  const handleWishlistUpdate = () => {
-    fetchWishlist(); // Your existing function to fetch updated wishlist items
-  };
+    const handleWishlistUpdate = () => {
+      if (wishlistKey) {
+        setSaved(isInWishlist(wishlistKey));
+      }
+    };
 
-  window.addEventListener("wishlist-updated", handleWishlistUpdate);
+    window.addEventListener("wishlist-updated", handleWishlistUpdate);
 
-  return () => window.removeEventListener("wishlist-updated", handleWishlistUpdate);
-}, []);
+    return () => window.removeEventListener("wishlist-updated", handleWishlistUpdate);
+  }, [wishlistKey, isInWishlist]);
 
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [id]);
 
-  if (!product) return null;
+
+  if (isProductsLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-grey-50">
+        <Header />
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-brand-primary-200 border-t-brand-primary-600 rounded-full animate-spin" />
+          <p className="mt-4 text-grey-600 font-medium">Loading product...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex flex-col bg-grey-50">
+        <Header />
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShoppingCart className="w-10 h-10 text-red-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-grey-900 mb-3">Product Not Found</h2>
+            <p className="text-grey-600 mb-6">
+              Sorry, we couldn't find the product you're looking for. It may have been removed or is temporarily unavailable.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => navigate(-1)}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go Back
+              </Button>
+              <Button 
+                onClick={() => navigate('/products')}
+                className="bg-brand-primary-500 hover:bg-brand-primary-600"
+              >
+                Browse All Products
+              </Button>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', {
@@ -63,9 +158,9 @@ const ProductDetailPage = () => {
     }).format(price);
   };
 
+
   const handleAddToCart = () => {
     if (isInStock) {
-      // Add multiple quantities
       for (let i = 0; i < quantity; i++) {
         addToCart(product);
       }
@@ -74,30 +169,31 @@ const ProductDetailPage = () => {
         description: `${quantity} ${product.name || product.productName || 'item(s)'} added to your cart.`,
         variant: 'success',
       });
-      setQuantity(1); // Reset quantity after adding
+      setQuantity(1);
     }
   };
 
+
   const handleUpdateCartQuantity = (newQuantity) => {
     if (newQuantity <= 0) {
-      removeFromCart(product._id);
+      removeFromCart(product._id || product.id);
       toast({
         title: "Removed from cart",
         description: `${product.name || product.productName || 'Product'} removed from cart.`,
       });
     } else {
-      updateQuantity(product._id, newQuantity);
+      updateQuantity(product._id || product.id, newQuantity);
     }
   };
 
-const handleToggleWishlist = async () => {
-  if (!product) return;
 
-  await toggleWishlist(product);
-  const newState = !saved; // toggle state locally
-  setSaved(newState);
-  window.dispatchEvent(new Event("wishlist-updated")); // for other components
-};
+  const handleToggleWishlist = async () => {
+    if (!product) return;
+
+    await toggleWishlist(product);
+    setSaved(!saved);
+    window.dispatchEvent(new Event("wishlist-updated"));
+  };
 
 
   const handleShare = async () => {
@@ -119,7 +215,7 @@ const handleToggleWishlist = async () => {
     }
   };
 
-  // Product data with fallbacks
+
   const displayName = product.name || product.productName || 'Unnamed Product';
   const displaySKU = product.sku || product.SKU || product._id;
   const displayPrice = product.price || 0;
@@ -133,14 +229,15 @@ const handleToggleWishlist = async () => {
   const displayBadge = product.badge || (product.badges && product.badges[0]) || null;
   const displayWarranty = product.warranty || '';
   const displayQuantityAvailable = product.quantity || 0;
-  const productVideos = product.videoUrls || [];
+  //  const productVideos = product.videoUrls || [product.youTubeUrl || product.youtubeUrl].filter(Boolean);
 
-  // Product images fallback
+
   const productImages = product.images?.length
     ? product.images
     : product.imageUrls?.length
     ? product.imageUrls
     : [product.image || '/placeholder-product.png'];
+
 
   const specifications = [
     { label: 'SKU', value: displaySKU },
@@ -150,13 +247,16 @@ const handleToggleWishlist = async () => {
     displayWarranty && { label: 'Warranty', value: displayWarranty },
   ].filter(Boolean);
 
+
   const savingsAmount = displayOriginalPrice && displayOriginalPrice > displayPrice 
     ? displayOriginalPrice - displayPrice 
     : 0;
 
+
   const savingsPercentage = displayOriginalPrice && displayOriginalPrice > displayPrice
     ? Math.round(((displayOriginalPrice - displayPrice) / displayOriginalPrice) * 100)
     : displayDiscount;
+
 
   return (
     <div className="min-h-screen flex flex-col bg-grey-50">
@@ -183,6 +283,7 @@ const handleToggleWishlist = async () => {
               <span className="text-grey-900 font-medium">{displayName}</span>
             </div>
           </div>
+
 
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Left Column - Product Images */}
@@ -222,6 +323,7 @@ const handleToggleWishlist = async () => {
                     </div>
                   </div>
 
+
                   {/* Zoom Icon */}
                   <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="bg-white/90 backdrop-blur-md rounded-full p-2 shadow-lg">
@@ -231,29 +333,8 @@ const handleToggleWishlist = async () => {
                 </div>
               </div>
 
-              {/* Product Video Section */}
-{productVideos.length > 0 && (
-  <div className="mt-6">
-    <h3 className="text-lg font-semibold text-grey-900 mb-3">Product Videos</h3>
-    <div className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-grey-200">
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-        {productVideos.map((video, index) => (
-          <div key={index} className="w-full aspect-video rounded-2xl overflow-hidden relative">
-            <iframe
-              className="w-full h-full"
-              src={video}
-              title={`Product Video ${index + 1}`}
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            ></iframe>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
 
+         
 
               {/* Thumbnail Navigation */}
               {productImages.length > 1 && (
@@ -278,6 +359,31 @@ const handleToggleWishlist = async () => {
                 </div>
               )}
 
+                   {/* Product Video Section */}
+              {productVideos.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-grey-900 mb-3">Product Videos</h3>
+                  <div className="relative w-full rounded-2xl overflow-hidden shadow-lg border border-grey-200">
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                      {productVideos.map((video, index) => (
+          <div key={index} className="w-full aspect-video rounded-2xl overflow-hidden relative">
+            <iframe
+              className="w-full h-full"
+              src={video}  // ✅ NOW CORRECT - Embed URL format
+              title={`Product Video ${index + 1}`}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            ></iframe>
+          </div>
+        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+
+
               {/* Trust Badges */}
               <div className="grid grid-cols-3 gap-3">
                 <Card className="bg-white border-grey-200">
@@ -301,6 +407,7 @@ const handleToggleWishlist = async () => {
               </div>
             </div>
 
+
             {/* Right Column - Product Details */}
             <div className="space-y-6">
               {/* Sticky Purchase Section */}
@@ -319,10 +426,12 @@ const handleToggleWishlist = async () => {
                       )}
                     </div>
 
+
                     {/* Product Name */}
                     <h1 className="text-3xl lg:text-4xl font-bold text-grey-900 leading-tight">
                       {displayName}
                     </h1>
+
 
                     {/* Rating */}
                     {displayRating > 0 && (
@@ -348,7 +457,9 @@ const handleToggleWishlist = async () => {
                       </div>
                     )}
 
+
                     <Separator />
+
 
                     {/* Price Section */}
                     <div className="space-y-3">
@@ -373,7 +484,9 @@ const handleToggleWishlist = async () => {
                       )}
                     </div>
 
+
                     <Separator />
+
 
                     {/* Stock Status */}
                     <div>
@@ -389,6 +502,7 @@ const handleToggleWishlist = async () => {
                         </div>
                       )}
                     </div>
+
 
                     {/* Quantity Selector (only if not in cart yet) */}
                     {cartQuantity === 0 && isInStock && (
@@ -422,6 +536,7 @@ const handleToggleWishlist = async () => {
                         </div>
                       </div>
                     )}
+
 
                     {/* Cart Management (if already in cart) */}
                     {cartQuantity > 0 && (
@@ -460,6 +575,7 @@ const handleToggleWishlist = async () => {
                       </div>
                     )}
 
+
                     {/* Action Buttons */}
                     <div className="space-y-3 pt-2">
                       {cartQuantity === 0 && (
@@ -473,27 +589,22 @@ const handleToggleWishlist = async () => {
                         </Button>
                       )}
 
+
                       <div className="grid grid-cols-2 gap-3">
-                      <Button
-  variant="outline"
-  size="lg"
-  className="h-12 border-2 hover:bg-grey-50"
-  onClick={async () => {
-    if (!product) return;
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="h-12 border-2 hover:bg-grey-50"
+                          onClick={handleToggleWishlist}
+                        >
+                          <Heart
+                            className={`w-5 h-5 mr-2 ${
+                              saved ? 'text-red-500 fill-red-500' : ''
+                            }`}
+                          />
+                          {saved ? 'Saved' : 'Save'}
+                        </Button>
 
-    await toggleWishlist(product); // Add/remove from wishlist
-
-    // Trigger wishlist page update
-    window.dispatchEvent(new Event("wishlist-updated"));
-  }}
->
-  <Heart
-    className={`w-5 h-5 mr-2 ${
-      wishlistKey && isInWishlist(wishlistKey) ? 'text-red-500 fill-red-500' : ''
-    }`}
-  />
-  {wishlistKey && isInWishlist(wishlistKey) ? 'Saved' : 'Save'}
-</Button>
 
                         <Button 
                           variant="outline" 
@@ -505,6 +616,7 @@ const handleToggleWishlist = async () => {
                           Share
                         </Button>
                       </div>
+
 
                       {cartQuantity > 0 && (
                         <Button
@@ -519,6 +631,7 @@ const handleToggleWishlist = async () => {
                     </div>
                   </CardContent>
                 </Card>
+
 
                 {/* Quick Specifications */}
                 {specifications.length > 0 && (
@@ -542,6 +655,7 @@ const handleToggleWishlist = async () => {
               </div>
             </div>
           </div>
+
 
           {/* Tabbed Content Section */}
           <div className="mt-12">
@@ -568,6 +682,7 @@ const handleToggleWishlist = async () => {
                       Reviews ({displayReviews})
                     </TabsTrigger>
                   </TabsList>
+
 
                   <TabsContent value="description" className="mt-6 space-y-4">
                     <h3 className="text-2xl font-bold text-grey-900">About This Product</h3>
@@ -606,6 +721,7 @@ const handleToggleWishlist = async () => {
                     </div>
                   </TabsContent>
 
+
                   <TabsContent value="specifications" className="mt-6">
                     <h3 className="text-2xl font-bold text-grey-900 mb-6">Technical Specifications</h3>
                     <div className="grid md:grid-cols-2 gap-4">
@@ -620,6 +736,7 @@ const handleToggleWishlist = async () => {
                       ))}
                     </div>
                   </TabsContent>
+
 
                   <TabsContent value="reviews" className="mt-6">
                     <div className="text-center py-12">
@@ -642,5 +759,6 @@ const handleToggleWishlist = async () => {
     </div>
   );
 };
+
 
 export default ProductDetailPage;

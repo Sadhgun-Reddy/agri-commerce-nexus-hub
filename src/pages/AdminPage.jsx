@@ -353,7 +353,7 @@ const AdminPage = () => {
         }
         
         // Append all form fields for UPDATE
-        apiFormData.append('name', formData.name);
+        apiFormData.append('productName', formData.name);
         apiFormData.append('price', formData.price);
         apiFormData.append('originalPrice', formData.originalPrice || formData.price);
         apiFormData.append('categories', JSON.stringify([formData.category]));

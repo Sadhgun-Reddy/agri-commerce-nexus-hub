@@ -16,6 +16,35 @@ export const useApp = () => {
   return context;
 };
 
+
+export const getYouTubeVideoId = (url) => {
+  if (!url) return null;
+  
+  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))v?=?([^#&?]*).*/;
+  const match = url.match(regExp);
+  
+  if (match && match[7] && match[7].length === 11) {
+    return match[7];
+  }
+  
+  return null;
+};
+
+export const getYouTubeEmbedUrl = (videoId, options = {}) => {
+  if (!videoId) return null;
+  
+  const params = new URLSearchParams({
+    autoplay: options.autoplay ? '1' : '0',
+    controls: options.controls !== false ? '1' : '0',
+    modestbranding: options.modestbranding ? '1' : '0',
+    rel: options.rel !== false ? '1' : '0',
+    enablejsapi: options.enablejsapi ? '1' : '0',
+    ...options.extraParams
+  });
+  
+  return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+};
+
 export const AppProvider = ({ children }) => {
   const [wishlistItems, setWishlistItems] = useState([]);
   const [user, setUser] = useState(null);
@@ -747,3 +776,5 @@ export const AppProvider = ({ children }) => {
     </AppContext.Provider>
   );
 };
+
+
