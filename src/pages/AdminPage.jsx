@@ -517,7 +517,7 @@ const AdminPage = () => {
               </div>
               {user && (
                 <Badge variant="default" className="text-sm bg-brand-primary-500">
-                  Admin: {user.name}
+                  {user.name}
                 </Badge>
               )}
             </div>
