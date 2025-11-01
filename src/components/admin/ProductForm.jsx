@@ -86,7 +86,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         badge: product.badge || '',
         quantity: product.quantity?.toString() || '',
         description: product.description || '',
-        youtubeUrl: product.youtubeUrl || ''
+        youtubeUrl: product.youtubeUrl || product.youTubeUrl || ''
       });
 
       // Handle existing images
@@ -180,17 +180,42 @@ const ProductForm = ({ product, onSave, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Prepare data with both existing and new images
-    const submitData = {
-      ...formData,
-      // Send new image files if any
-      newImageFiles: newImageFiles.length > 0 ? newImageFiles : undefined,
-      // Send existing images URLs
-      existingImages: existingImages.length > 0 ? existingImages : undefined,
-       youtubeUrl: formData.youtubeUrl 
-    };
-    
-    onSave(submitData);
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Separate new image files and existing image URLs
+      const newImageFiles = images
+        .filter(img => img.isNew && img.file)
+        .map(img => img.file);
+      
+      const existingImageUrls = images
+        .filter(img => !img.isNew && img.url)
+        .map(img => img.url);
+      
+      // Prepare data object with separated images
+      const submitData = {
+        formData: formData,
+        newImageFiles: newImageFiles,
+        existingImageUrls: existingImageUrls,
+        isEdit: !!product,
+        hasNewImages: newImageFiles.length > 0
+      };
+      
+      await onSave(submitData);
+      
+      // Reset form on successful save
+      if (!product) {
+        resetForm();
+      }
+    } catch (error) {
+      setErrors(prev => ({ ...prev, submit: error.message || 'Failed to save product' }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (field, value) => {
@@ -414,17 +439,22 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         </div>
       </div>
 
-     <div>
-  <Label htmlFor="youtubeUrl">YouTube URL</Label>
-  <Input
-    id="youtubeUrl"
-    type="url"
-    value={formData.youtubeUrl}
-    onChange={(e) => handleChange('youtubeUrl', e.target.value)}
-    placeholder="https://www.youtube.com/watch?v=..."
-  />
-</div>
-
+      <div>
+        <Label htmlFor="youtubeUrl">YouTube URL</Label>
+        <Input
+          id="youtubeUrl"
+          name="youtubeUrl"
+          type="url"
+          value={formData.youtubeUrl}
+          onChange={handleInputChange}
+          placeholder="https://www.youtube.com/watch?v=..."
+          aria-invalid={!!errors.youtubeUrl}
+          aria-describedby={errors.youtubeUrl ? 'youtubeUrl-error' : undefined}
+        />
+        {errors.youtubeUrl && (
+          <p id="youtubeUrl-error" className="text-sm text-red-500 mt-1">{errors.youtubeUrl}</p>
+        )}
+      </div>
 
       <div>
         <Label htmlFor="description">Description</Label>

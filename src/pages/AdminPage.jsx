@@ -7,20 +7,25 @@ import Footer from '@/components/layout/Footer.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-
 import axios from 'axios';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast.js';
 import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle
+} from '@/components/ui/dialog';
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 
+// Import ProductForm
+import ProductForm from '../components/admin/ProductForm';
+
 // Centralized URLs
 import { URLS } from '@/Urls.jsx';
 
-// Use your existing context only for PRODUCTS
+// Use your existing context
 import { useApp } from '@/contexts/AppContext.jsx';
 
 // Delivery status options
@@ -58,7 +63,18 @@ const getStatusColor = (status) => {
   }
 };
 
-
+// Helper function to convert URL to File object
+const urlToFile = async (url, filename) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const file = new File([blob], filename, { type: blob.type });
+    return file;
+  } catch (error) {
+    console.error('Error converting URL to file:', error);
+    throw error;
+  }
+};
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -80,20 +96,23 @@ const AdminPage = () => {
   const [selectedStatuses, setSelectedStatuses] = useState({});
   const [savingStatus, setSavingStatus] = useState({});
 
-  // ✅ FIXED: Get products from context WITHOUT calling fetchProducts
-  const { products, deleteProduct } = useApp();
+  // Get products from context
+  const { products, deleteProduct, fetchProducts } = useApp();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Product Form Dialog States
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [productFormMode, setProductFormMode] = useState('add'); // 'add' or 'edit'
+  const [editingProduct, setEditingProduct] = useState(null);
 
   // Get token from localStorage
   const getAuthToken = () => {
     return localStorage.getItem('authToken');
   };
 
-  
-
-  // Security check (dummy)
+  // Security check
   useEffect(() => {
     if (!isAuthLoading && (!user || user.role !== 'admin')) {
       toast({
@@ -105,7 +124,7 @@ const AdminPage = () => {
     }
   }, [user, isAuthLoading, navigate, toast]);
 
-  // Fetch ORDERS on mount - Only once
+  // Fetch ORDERS on mount
   useEffect(() => {
     const controller = new AbortController();
     let isMounted = true;
@@ -149,7 +168,6 @@ const AdminPage = () => {
           const list = Array.isArray(data.orders) ? data.orders : [];
           setOrders(list);
 
-          // Initialize selected statuses
           const map = {};
           list.forEach((o) => {
             const id = o._id || o.id;
@@ -184,8 +202,7 @@ const AdminPage = () => {
       isMounted = false;
       controller.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once
+  }, [toast]);
 
   const formatPrice = (price) =>
     new Intl.NumberFormat('en-IN', { 
@@ -194,71 +211,265 @@ const AdminPage = () => {
       maximumFractionDigits: 0 
     }).format(price);
 
-  // ORDERS: Confirm status change (persist to backend)
+  // Update order status
+  const handleConfirmStatus = async (order) => {
+    const id = order._id || order.id;
+    const selected = selectedStatuses[id];
+    const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
 
-const handleConfirmStatus = async (order) => {
-  const id = order._id || order.id;
-  const selected = selectedStatuses[id];
-  const current = normalizeDeliveryStatus(order.deliveryStatus, order.status);
+    if (!id || !selected || selected === current) return;
 
-  if (!id || !selected || selected === current) return;
+    const token = getAuthToken();
+    if (!token) {
+      toast({ 
+        title: 'Authentication Error', 
+        description: 'Please log in again', 
+        variant: 'destructive' 
+      });
+      return;
+    }
 
-  const token = getAuthToken();
-  if (!token) {
-    toast({ 
-      title: 'Authentication Error', 
-      description: 'Please log in again', 
-      variant: 'destructive' 
-    });
-    return;
-  }
+    setSavingStatus((p) => ({ ...p, [id]: true }));
 
-  setSavingStatus((p) => ({ ...p, [id]: true }));
-
-  try {
-    // ✅ Use PUT and send status in body
-    const res = await axios.put(
-      URLS.UpdateStatus(id),
-      { deliveryStatus: selected },  // ✅ sent in body
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
-
-    const data = res.data;
-
-    if (data.success) {
-      setOrders((prev) =>
-        prev.map((o) => {
-          const oid = o._id || o.id;
-          return oid === id ? { ...o, deliveryStatus: selected } : o;
-        })
+    try {
+      const res = await axios.put(
+        URLS.UpdateStatus(id),
+        { deliveryStatus: selected },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
       );
 
-      toast({ 
-        title: 'Order Updated', 
-        description: `Order status changed to ${labelFromDeliveryStatus(selected)}` 
-      });
-    } else {
-      throw new Error(data.message || 'Update failed');
-    }
-  } catch (e) {
-    console.error('Update error:', e);
-    toast({ 
-      title: 'Update failed', 
-      description: e.message || 'Could not update order status', 
-      variant: 'destructive' 
-    });
-    setSelectedStatuses((p) => ({ ...p, [id]: current }));
-  } finally {
-    setSavingStatus((p) => ({ ...p, [id]: false }));
-  }
-};
+      const data = res.data;
 
-  // PRODUCTS: delete via API
+      if (data.success) {
+        setOrders((prev) =>
+          prev.map((o) => {
+            const oid = o._id || o.id;
+            return oid === id ? { ...o, deliveryStatus: selected } : o;
+          })
+        );
+
+        toast({ 
+          title: 'Order Updated', 
+          description: `Order status changed to ${labelFromDeliveryStatus(selected)}` 
+        });
+      } else {
+        throw new Error(data.message || 'Update failed');
+      }
+    } catch (e) {
+      console.error('Update error:', e);
+      toast({ 
+        title: 'Update failed', 
+        description: e.message || 'Could not update order status', 
+        variant: 'destructive' 
+      });
+      setSelectedStatuses((p) => ({ ...p, [id]: current }));
+    } finally {
+      setSavingStatus((p) => ({ ...p, [id]: false }));
+    }
+  };
+
+  // Open Add Product Dialog
+  const handleOpenAddProduct = () => {
+    setProductFormMode('add');
+    setEditingProduct(null);
+    setProductDialogOpen(true);
+  };
+
+  // Open Edit Product Dialog
+  const handleOpenEditProduct = (product) => {
+    setProductFormMode('edit');
+    setEditingProduct(product);
+    setProductDialogOpen(true);
+  };
+
+  // Close Product Dialog
+  const handleCloseProductDialog = () => {
+    setProductDialogOpen(false);
+    setEditingProduct(null);
+  };
+
+  // Handle Product Save (Add or Edit)
+  const handleProductSave = async (submitData) => {
+    const token = getAuthToken();
+    if (!token) {
+      toast({ 
+        title: 'Authentication Error', 
+        description: 'Please log in again', 
+        variant: 'destructive' 
+      });
+      throw new Error('No authentication token');
+    }
+
+    try {
+      const { formData, newImageFiles, existingImageUrls, isEdit, hasNewImages } = submitData;
+      
+      // Create FormData for multipart upload (ALWAYS for updates)
+      const apiFormData = new FormData();
+      
+      if (isEdit) {
+        // UPDATE MODE - Backend REQUIRES multipart/form-data with images field
+        console.log('Update mode:', { 
+          hasNewImages, 
+          newImageFilesCount: newImageFiles.length,
+          existingImageUrlsCount: existingImageUrls.length 
+        });
+        
+        const productId = editingProduct._id || editingProduct.id;
+        
+        if (hasNewImages && newImageFiles.length > 0) {
+          // Case 1: User uploaded NEW images
+          console.log('Uploading new images');
+          newImageFiles.forEach((file) => {
+            apiFormData.append('images', file);
+          });
+        } else if (existingImageUrls && existingImageUrls.length > 0) {
+          // Case 2: NO new images - Convert existing URLs to files and re-upload
+          console.log('Converting existing image URLs to files for re-upload...');
+          
+          try {
+            // Convert all existing image URLs to File objects
+            const filePromises = existingImageUrls.map(async (url, index) => {
+              const filename = url.split('/').pop() || `image-${index}.jpg`;
+              return await urlToFile(url, filename);
+            });
+            
+            const existingFiles = await Promise.all(filePromises);
+            
+            // Append converted files to FormData
+            existingFiles.forEach((file) => {
+              apiFormData.append('images', file);
+            });
+            
+            console.log(`Re-uploaded ${existingFiles.length} existing images as files`);
+          } catch (error) {
+            console.error('Error converting existing images:', error);
+            throw new Error('Failed to process existing images. Please try uploading new images.');
+          }
+        }
+        
+        // Append all form fields for UPDATE
+        apiFormData.append('name', formData.name);
+        apiFormData.append('price', formData.price);
+        apiFormData.append('originalPrice', formData.originalPrice || formData.price);
+        apiFormData.append('categories', JSON.stringify([formData.category]));
+        apiFormData.append('brand', formData.brand || '');
+        apiFormData.append('sku', formData.sku);
+        apiFormData.append('inStock', formData.inStock.toString());
+        apiFormData.append('quantity', formData.quantity);
+        apiFormData.append('discount', formData.discount);
+        apiFormData.append('badges', JSON.stringify(formData.badge ? [formData.badge] : []));
+        
+        if (formData.description) apiFormData.append('description', formData.description);
+        if (formData.youtubeUrl) apiFormData.append('youtubeUrl', formData.youtubeUrl);
+        if (formData.rating) apiFormData.append('rating', formData.rating);
+        if (formData.reviewCount) apiFormData.append('reviewCount', formData.reviewCount);
+
+        // Log FormData contents
+        console.log('=== UPDATE Request FormData ===');
+        for (let pair of apiFormData.entries()) {
+          if (pair[1] instanceof File) {
+            console.log(pair[0], `[File: ${pair[1].name}, Size: ${pair[1].size} bytes]`);
+          } else {
+            console.log(pair[0], pair[1]);
+          }
+        }
+        console.log('================================');
+        
+        const response = await axios.put(
+          `${URLS.UpdateProduct}/${productId}`, 
+          apiFormData, 
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.data.success) {
+          toast({
+            title: 'Product Updated',
+            description: 'Product updated successfully',
+          });
+          await fetchProducts();
+          handleCloseProductDialog();
+        } else {
+          throw new Error(response.data.message || 'Update failed');
+        }
+        
+      } else {
+        // ADD MODE - Always multipart with images
+        if (newImageFiles && newImageFiles.length > 0) {
+          newImageFiles.forEach((file) => {
+            apiFormData.append('images', file);
+          });
+        }
+        
+        apiFormData.append('productName', formData.name);
+        apiFormData.append('SKU', formData.sku);
+        apiFormData.append('price', formData.price);
+        apiFormData.append('originalPrice', formData.originalPrice || formData.price);
+        apiFormData.append('category', formData.category);
+        apiFormData.append('brand', formData.brand || '');
+        apiFormData.append('quantity', formData.quantity);
+        apiFormData.append('description', formData.description || '');
+        apiFormData.append('inStock', formData.inStock.toString());
+        apiFormData.append('rating', formData.rating);
+        apiFormData.append('reviewCounts', formData.reviewCount);
+        apiFormData.append('discount', formData.discount);
+        apiFormData.append('badge', formData.badge || '');
+        
+        if (formData.youtubeUrl) {
+          apiFormData.append('youTubeUrl', formData.youtubeUrl);
+        }
+
+        const response = await axios.post(URLS.AddProduct, apiFormData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.data.success) {
+          toast({
+            title: 'Product Added',
+            description: 'Product added successfully',
+          });
+          await fetchProducts();
+          handleCloseProductDialog();
+        } else {
+          throw new Error(response.data.message || 'Failed to add product');
+        }
+      }
+      
+    } catch (error) {
+      console.error('Product save error:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.data?.error ||
+                          error.message || 
+                          'Could not save product';
+      
+      console.error('Full error details:', {
+        response: error.response?.data,
+        status: error.response?.status,
+        message: errorMessage
+      });
+      
+      toast({
+        title: 'Operation Failed',
+        description: errorMessage,
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
+  // Delete product confirmation
   const handleProductDeleteConfirm = async () => {
     if (!productToDelete) return;
     setIsSubmitting(true);
@@ -373,7 +584,7 @@ const handleConfirmStatus = async (order) => {
             </Button>
           </div>
 
-          {/* Orders (API) */}
+          {/* Orders Table */}
           {activeTab === 'orders' && (
             <Card>
               <CardHeader>
@@ -485,13 +696,16 @@ const handleConfirmStatus = async (order) => {
             </Card>
           )}
 
-          {/* Products (from context - no loading needed) */}
+          {/* Products Table */}
           {activeTab === 'products' && (
             <div className="mt-0">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Products</CardTitle>
-                  <Button disabled className="opacity-60 cursor-not-allowed">
+                  <Button 
+                    onClick={handleOpenAddProduct}
+                    className="bg-brand-primary-500 hover:bg-brand-primary-600"
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Product
                   </Button>
@@ -541,11 +755,10 @@ const handleConfirmStatus = async (order) => {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    disabled
-                                    className="opacity-50 cursor-not-allowed"
-                                    title="Edit coming soon"
+                                    onClick={() => handleOpenEditProduct(product)}
+                                    className="hover:bg-blue-50"
                                   >
-                                    <Edit2 className="w-4 h-4" />
+                                    <Edit2 className="w-4 h-4 text-blue-600" />
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -572,6 +785,28 @@ const handleConfirmStatus = async (order) => {
           )}
         </div>
       </main>
+
+      {/* Product Form Dialog (Add/Edit) */}
+      <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>
+              {productFormMode === 'add' ? 'Add New Product' : 'Edit Product'}
+            </DialogTitle>
+            <DialogDescription>
+              {productFormMode === 'add' 
+                ? 'Fill in the details to add a new product to your inventory' 
+                : 'Update the product information'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <ProductForm
+            product={editingProduct}
+            onSave={handleProductSave}
+            onCancel={handleCloseProductDialog}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
