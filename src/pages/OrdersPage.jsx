@@ -1,3 +1,4 @@
+// src/pages/OrdersPage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { Package, Clock, Truck, CheckCircle, XCircle } from 'lucide-react';
 import Header from '@/components/layout/Header.jsx';
@@ -9,11 +10,13 @@ import { useToast } from '@/hooks/use-toast.js';
 import axios from 'axios';
 import { URLS } from '@/Urls';
 
+
 const OrdersPage = () => {
   const { user, products } = useApp();
   const { toast } = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+
 
   const productMap = useMemo(() => {
     const map = new Map();
@@ -31,8 +34,10 @@ const OrdersPage = () => {
     return map;
   }, [products]);
 
+
   const formatINR = (n) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
+
 
   const getStatusIcon = (status) => {
     switch ((status || '').toLowerCase()) {
@@ -46,6 +51,7 @@ const OrdersPage = () => {
     }
   };
 
+
   const getStatusColor = (status) => {
     switch ((status || '').toLowerCase()) {
       case 'pending': return 'bg-yellow-500';
@@ -57,6 +63,46 @@ const OrdersPage = () => {
       default: return 'bg-gray-500';
     }
   };
+
+
+  const getDeliveryStatusIcon = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'placed': return <Clock className="w-4 h-4" />;
+      case 'confirmed': return <CheckCircle className="w-4 h-4" />;
+      case 'processing': return <Package className="w-4 h-4" />;
+      case 'shipped': return <Truck className="w-4 h-4" />;
+      case 'delivered': return <CheckCircle className="w-4 h-4" />;
+      case 'cancelled': return <XCircle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
+  };
+
+
+  const getDeliveryStatusColor = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'placed': return 'bg-yellow-100 text-yellow-700 border border-yellow-300';
+      case 'confirmed': return 'bg-blue-100 text-blue-700 border border-blue-300';
+      case 'processing': return 'bg-orange-100 text-orange-700 border border-orange-300';
+      case 'shipped': return 'bg-purple-100 text-purple-700 border border-purple-300';
+      case 'delivered': return 'bg-green-100 text-green-700 border border-green-300';
+      case 'cancelled': return 'bg-red-100 text-red-700 border border-red-300';
+      default: return 'bg-gray-100 text-gray-700 border border-gray-300';
+    }
+  };
+
+
+  const getDeliveryStatusLabel = (status) => {
+    const labels = {
+      'placed': 'Order Placed',
+      'confirmed': 'Confirmed',
+      'processing': 'Processing',
+      'shipped': 'Shipped',
+      'delivered': 'Delivered',
+      'cancelled': 'Cancelled',
+    };
+    return labels[status?.toLowerCase()] || status || 'Unknown';
+  };
+
 
   const fetchProductById = async (id, token) => {
     try {
@@ -75,6 +121,7 @@ const OrdersPage = () => {
     }
   };
 
+
   useEffect(() => {
     const loadOrders = async () => {
       try {
@@ -91,24 +138,25 @@ const OrdersPage = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
+
         const raw = res.data?.orders || res.data?.data?.orders || res.data?.data || [];
         const normalized = Array.isArray(raw) ? raw.map(o => ({
           id: o._id || o.id,
           createdAt: o.createdAt || new Date().toISOString(),
           status: o.status || 'paid',
-          amount: o.amount,              // rupees per your verify response
+          deliveryStatus: o.deliveryStatus || 'placed',
+          amount: o.amount,
           address: o.address || o.shippingAddress || {},
           items: Array.isArray(o.items) ? o.items.map(it => ({
             productId: String(it.productId || it.product || it._id),
             quantity: it.quantity || 1,
-            // will enrich below
             name: it.name,
             price: it.price,
             image: it.image,
           })) : [],
         })) : [];
 
-        // Enrich with product details based on productId
+
         const cache = new Map(productMap);
         for (const order of normalized) {
           for (let i = 0; i < order.items.length; i++) {
@@ -124,6 +172,7 @@ const OrdersPage = () => {
           }
         }
 
+
         setOrders(normalized);
       } catch (err) {
         console.error('Orders fetch error', err?.response?.data || err);
@@ -134,6 +183,7 @@ const OrdersPage = () => {
     };
     loadOrders();
   }, [user, productMap, toast]);
+
 
   if (!user) {
     return (
@@ -150,6 +200,7 @@ const OrdersPage = () => {
     );
   }
 
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -159,6 +210,7 @@ const OrdersPage = () => {
             <h1 className="text-3xl font-bold text-grey-800 mb-2">My Orders</h1>
             <p className="text-grey-600">Track your order status and history</p>
           </div>
+
 
           {loading ? (
             <Card><CardContent className="py-12 text-center">Loading orders…</CardContent></Card>
@@ -171,70 +223,55 @@ const OrdersPage = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-3">
               {orders.map((order) => (
-                <Card key={order.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">Order {order.id}</CardTitle>
-                        <p className="text-sm text-grey-600">
-                          Placed on {new Date(order.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Badge className={`${getStatusColor(order.status)} text-white`}>
-                        <div className="flex items-center space-x-1">
-                          {getStatusIcon(order.status)}
-                          <span className="capitalize">{order.status}</span>
-                        </div>
-                      </Badge>
+                <Card key={order.id} className="p-4">
+                  {/* Top Row - Payment Status & Date */}
+                  <div className="flex justify-between items-start gap-4 mb-3">
+                    <div>
+                      <p className="text-sm font-semibold">Order #{order.id}</p>
+                      <p className="text-xs text-grey-600">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div className="grid md:grid-cols-2 gap-6">
-                      {/* Items */}
-                      <div>
-                        <h4 className="font-semibold mb-3">Items Ordered</h4>
-                        <div className="space-y-3">
-                          {order.items.map((item, idx) => (
-                            <div key={`${item.productId}-${idx}`} className="flex items-center space-x-3">
-                              {item.image ? (
-                                <img src={item.image} alt={item.name || item.productId} className="w-12 h-12 object-cover rounded" />
-                              ) : (
-                                <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500">IMG</div>
-                              )}
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{item.name || `Product ${item.productId}`}</p>
-                                <p className="text-xs text-grey-600">Qty: {item.quantity}</p>
-                              </div>
-                              {typeof item.price === 'number' ? (
-                                <p className="font-medium">{formatINR(item.price * item.quantity)}</p>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
+                    <Badge className={`${getStatusColor(order.status)} text-white text-xs`}>
+                      <div className="flex items-center gap-1">
+                        {getStatusIcon(order.status)}
+                        <span>{order.status}</span>
                       </div>
+                    </Badge>
+                  </div>
 
-                      {/* Shipping + Total */}
-                      <div>
-                        <h4 className="font-semibold mb-3">Shipping Address</h4>
-                        <div className="text-sm text-grey-600 mb-4">
-                          <p>{order.address?.fullName}</p>
-                          <p>{order.address?.address}</p>
-                          <p>{order.address?.city}, {order.address?.state} {order.address?.pincode}</p>
-                          {order.address?.phone ? <p>Phone: {order.address.phone}</p> : null}
-                          {order.address?.email ? <p>Email: {order.address.email}</p> : null}
-                        </div>
-                        <div className="border-t pt-3">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">Total</span>
-                            <span className="font-bold text-lg">{formatINR(order.amount)}</span>
-                          </div>
-                        </div>
+
+                  {/* Shipping Status Badge */}
+                  <div className="mb-3">
+                    <Badge className={`${getDeliveryStatusColor(order.deliveryStatus)} text-xs`}>
+                      <div className="flex items-center gap-1">
+                        {getDeliveryStatusIcon(order.deliveryStatus)}
+                        <span className="font-medium">{getDeliveryStatusLabel(order.deliveryStatus)}</span>
                       </div>
+                    </Badge>
+                  </div>
+
+
+                  {/* Product Item */}
+                  <div className="flex gap-3 mb-3">
+                    {order.items[0]?.image ? (
+                      <img src={order.items[0].image} alt={order.items[0].name} className="w-12 h-12 object-cover rounded" />
+                    ) : (
+                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500">IMG</div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{order.items[0]?.name || 'Product'}</p>
+                      <p className="text-xs text-grey-600">{order.items[0]?.quantity}x</p>
                     </div>
-                  </CardContent>
+                  </div>
+
+
+                  {/* Total Amount */}
+                  <div className="border-t pt-2">
+                    <p className="text-sm font-semibold">{formatINR(order.amount)}</p>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -245,5 +282,6 @@ const OrdersPage = () => {
     </div>
   );
 };
+
 
 export default OrdersPage;

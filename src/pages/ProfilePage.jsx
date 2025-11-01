@@ -199,10 +199,10 @@ const ProfilePage = () => {
               <Card>
                 <CardContent className="p-4">
                   <nav className="space-y-2">
-                    <Button variant="ghost" className="w-full justify-start">
+                    {/* <Button variant="ghost" className="w-full justify-start">
                       <User className="w-4 h-4 mr-2" />
                       Personal Info
-                    </Button>
+                    </Button> */}
 
                     <Button
                       variant="ghost"

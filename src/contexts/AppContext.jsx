@@ -502,6 +502,7 @@ export const AppProvider = ({ children }) => {
     clearAuthData();
     setUser(null);
     setWishlistItems([]);
+     setCartItems([]); 
     toast({
       title: 'Logged out',
       description: 'You have been logged out.',
@@ -728,7 +729,17 @@ export const AppProvider = ({ children }) => {
     );
   };
 
-  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // const cartCount = new Set(cartItems.map(item => item.product?._id || item._id)).size;
+
+
+  
+  // Compute cart count (unique items)
+const cartCount = new Set(cartItems.map(item => item.product?._id || item._id)).size;
+
+// Optional: total quantity if you need it elsewhere
+const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
 
   // ✅ REMOVED: This was causing the infinite loop!
   // The duplicate useEffect that was fetching data on every render
@@ -740,6 +751,7 @@ export const AppProvider = ({ children }) => {
       updateQuantity,
       removeFromCart,
       cartCount,
+      totalQuantity,
       clearCart,
       isLoginDialogOpen,
       openLoginDialog,

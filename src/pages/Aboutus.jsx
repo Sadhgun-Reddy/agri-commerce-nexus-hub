@@ -118,47 +118,7 @@ const AboutUs = () => {
         </section>
 
         {/* Team & Values Section */}
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto prose prose-lg text-center mb-12">
-              <h2 className="text-3xl font-bold text-grey-800 mb-6">
-                Meet Our Team
-              </h2>
-              <p className="text-lg text-grey-600">
-                Our diverse team of agronomists, tech experts, and business leaders is passionate about transforming agriculture.
-              </p>
-            </div>
-
-            {/* Team Cards - Placeholder for images */}
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-gray-50 p-6 rounded-lg text-center">
-                <div className="w-24 h-24 bg-brand-primary-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <img src="/placeholder-team1.jpg" alt="CEO" className="w-full h-full rounded-full object-cover" />
-                  {/* Or use initial: <span className="text-2xl font-bold text-brand-primary-500">JD</span> */}
-                </div>
-                <h3 className="text-xl font-semibold text-grey-800 mb-1">John Doe</h3>
-                <p className="text-grey-600 mb-2">CEO & Founder</p>
-                <p className="text-sm text-grey-500">20+ years in agribusiness, driving sustainable innovation.</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg text-center">
-                <div className="w-24 h-24 bg-brand-primary-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <img src="/placeholder-team2.jpg" alt="CTO" className="w-full h-full rounded-full object-cover" />
-                </div>
-                <h3 className="text-xl font-semibold text-grey-800 mb-1">Jane Smith</h3>
-                <p className="text-grey-600 mb-2">CTO</p>
-                <p className="text-sm text-grey-500">Expert in AI for crop analytics and e-commerce tech.</p>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-lg text-center">
-                <div className="w-24 h-24 bg-brand-primary-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <img src="/placeholder-team3.jpg" alt="Agronomist" className="w-full h-full rounded-full object-cover" />
-                </div>
-                <h3 className="text-xl font-semibold text-grey-800 mb-1">Raj Patel</h3>
-                <p className="text-grey-600 mb-2">Head Agronomist</p>
-                <p className="text-sm text-grey-500">PhD in soil science, advising on eco-friendly products.</p>
-              </div>
-            </div>
-          </div>
-        </section>
+       
 
         {/* Core Values Section */}
         <section className="py-16 bg-gray-50">
@@ -211,7 +171,9 @@ const AboutUs = () => {
 >
                 Shop Now
               </button>
-              <button className="border border-brand-primary-500 text-brand-primary-500 px-8 py-3 rounded-lg font-semibold hover:bg-brand-primary-50">
+              <button className="border border-brand-primary-500 text-brand-primary-500 px-8 py-3 rounded-lg font-semibold hover:bg-brand-primary-50"
+               onClick={() => navigate("/contact")}
+              >
                 Contact Us
               </button>
             </div>
