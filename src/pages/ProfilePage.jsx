@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Lock, LogOut, Settings } from "lucide-react";
+import { User, Lock, LogOut } from "lucide-react";
 import Header from "@/components/layout/Header.jsx";
 import Footer from "@/components/layout/Footer.jsx";
 import { Button } from "@/components/ui/button.jsx";
@@ -19,15 +19,15 @@ const ProfilePage = () => {
   const { toast } = useToast();
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(""); // disabled
-  const [phone, setPhone] = useState(""); // editable
+  const [email, setEmail] = useState(""); // editable
+  const [phone, setPhone] = useState(""); // disabled
   const [saving, setSaving] = useState(false);
   const [changePassword, setChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Prefetch user details (name, email, phone)
+  // Prefetch user details
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -113,6 +113,7 @@ const ProfilePage = () => {
       // Profile update
       const profilePayload = {};
       if (name && name !== user?.name) profilePayload.name = name.trim();
+      if (email && email !== user?.email) profilePayload.email = email.trim();
       if (phone && phone !== user?.phone) profilePayload.phone = phone.trim();
 
       if (Object.keys(profilePayload).length > 0) {
@@ -199,11 +200,6 @@ const ProfilePage = () => {
               <Card>
                 <CardContent className="p-4">
                   <nav className="space-y-2">
-                    {/* <Button variant="ghost" className="w-full justify-start">
-                      <User className="w-4 h-4 mr-2" />
-                      Personal Info
-                    </Button> */}
-
                     <Button
                       variant="ghost"
                       className="w-full justify-start text-red-600 hover:text-red-700"
@@ -236,29 +232,30 @@ const ProfilePage = () => {
                         placeholder="Enter your name"
                       />
                     </div>
-                <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Email Address
-  </label>
-  <Input
-    type="email"
-    value={email}
-    disabled
-    className="bg-gray-100 cursor-not-allowed"
-  />
-</div>
-<div className="md:col-span-2">
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Phone Number
-  </label>
-  <Input
-    type="tel"
-    value={phone}
-    disabled
-    className="bg-gray-100 cursor-not-allowed"
-  />
-</div>
 
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address
+                      </label>
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number
+                      </label>
+                      <Input
+                        type="tel"
+                        value={phone}
+                        disabled
+                        className="bg-gray-100 cursor-not-allowed"
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
