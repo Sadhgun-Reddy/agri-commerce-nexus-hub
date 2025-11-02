@@ -1,6 +1,6 @@
 // src/pages/AdminPage.jsx
 import React, { useState, useEffect } from 'react';
-import { Package, ShoppingCart, Users, Settings, Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Package, ShoppingCart, Users, Settings, Plus, Edit2, Trash2, Loader2, Eye, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header.jsx';
 import Footer from '@/components/layout/Footer.jsx';
@@ -32,8 +32,10 @@ import { useApp } from '@/contexts/AppContext.jsx';
 const DELIVERY_STATUS_OPTIONS = [
   { value: 'placed', label: 'Order Placed' },
   { value: 'confirmed', label: 'Confirmed' },
+  { value: 'processing', label: 'Processing' },
   { value: 'shipped', label: 'Order Shipped' },
   { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancelled' },
 ];
 
 const normalizeDeliveryStatus = (status, fallbackStatus) => {
@@ -46,19 +48,17 @@ const normalizeDeliveryStatus = (status, fallbackStatus) => {
 const labelFromDeliveryStatus = (status) => {
   const found = DELIVERY_STATUS_OPTIONS.find((o) => o.value === status);
   if (found) return found.label;
-  if (status === 'cancelled') return 'Cancelled';
-  if (status === 'processing') return 'Processing';
-  return 'Order Placed';
+  return 'Unknown';
 };
 
 const getStatusColor = (status) => {
   switch (status) {
     case 'placed': return 'bg-yellow-500';
     case 'confirmed': return 'bg-blue-500';
+    case 'processing': return 'bg-orange-500';
     case 'shipped': return 'bg-purple-500';
     case 'delivered': return 'bg-green-500';
     case 'cancelled': return 'bg-red-500';
-    case 'processing': return 'bg-orange-500';
     default: return 'bg-gray-500';
   }
 };
@@ -92,6 +92,10 @@ const AdminPage = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState(null);
 
+  // Order Details Modal
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+
   // Local UI for per-order selection and saving
   const [selectedStatuses, setSelectedStatuses] = useState({});
   const [savingStatus, setSavingStatus] = useState({});
@@ -104,8 +108,34 @@ const AdminPage = () => {
 
   // Product Form Dialog States
   const [productDialogOpen, setProductDialogOpen] = useState(false);
-  const [productFormMode, setProductFormMode] = useState('add'); // 'add' or 'edit'
+  const [productFormMode, setProductFormMode] = useState('add');
   const [editingProduct, setEditingProduct] = useState(null);
+
+
+  const [orderProducts, setOrderProducts] = useState({});
+const [loadingProducts, setLoadingProducts] = useState(false);
+
+// Add this helper function to fetch product details
+const fetchProductDetails = async (productId) => {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  try {
+    const response = await axios.get(URLS.ProductById(productId), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (response.data.success) {
+      return response.data.data || response.data.product;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    return null;
+  }
+};
 
   // Get token from localStorage
   const getAuthToken = () => {
@@ -273,6 +303,41 @@ const AdminPage = () => {
     }
   };
 
+  // Open order details modal
+  // const openOrderDetails = (order) => {
+  //   setSelectedOrder(order);
+  //   setShowOrderModal(true);
+  // };
+  const openOrderDetails = async (order) => {
+  setSelectedOrder(order);
+  setShowOrderModal(true);
+  setLoadingProducts(true);
+
+  // Fetch all product details for items in the order
+  const productDetails = {};
+  
+  if (order.items && order.items.length > 0) {
+    for (const item of order.items) {
+      if (item.productId && !orderProducts[item.productId]) {
+        const product = await fetchProductDetails(item.productId);
+        if (product) {
+          productDetails[item.productId] = product;
+        }
+      }
+    }
+    
+    setOrderProducts(prev => ({ ...prev, ...productDetails }));
+  }
+  
+  setLoadingProducts(false);
+};
+
+  // Close order details modal
+  const closeOrderModal = () => {
+    setShowOrderModal(false);
+    setTimeout(() => setSelectedOrder(null), 300);
+  };
+
   // Open Add Product Dialog
   const handleOpenAddProduct = () => {
     setProductFormMode('add');
@@ -308,51 +373,32 @@ const AdminPage = () => {
     try {
       const { formData, newImageFiles, existingImageUrls, isEdit, hasNewImages } = submitData;
       
-      // Create FormData for multipart upload (ALWAYS for updates)
       const apiFormData = new FormData();
       
       if (isEdit) {
-        // UPDATE MODE - Backend REQUIRES multipart/form-data with images field
-        console.log('Update mode:', { 
-          hasNewImages, 
-          newImageFilesCount: newImageFiles.length,
-          existingImageUrlsCount: existingImageUrls.length 
-        });
-        
         const productId = editingProduct._id || editingProduct.id;
         
         if (hasNewImages && newImageFiles.length > 0) {
-          // Case 1: User uploaded NEW images
-          console.log('Uploading new images');
           newImageFiles.forEach((file) => {
             apiFormData.append('images', file);
           });
         } else if (existingImageUrls && existingImageUrls.length > 0) {
-          // Case 2: NO new images - Convert existing URLs to files and re-upload
-          console.log('Converting existing image URLs to files for re-upload...');
-          
           try {
-            // Convert all existing image URLs to File objects
             const filePromises = existingImageUrls.map(async (url, index) => {
               const filename = url.split('/').pop() || `image-${index}.jpg`;
               return await urlToFile(url, filename);
             });
             
             const existingFiles = await Promise.all(filePromises);
-            
-            // Append converted files to FormData
             existingFiles.forEach((file) => {
               apiFormData.append('images', file);
             });
-            
-            console.log(`Re-uploaded ${existingFiles.length} existing images as files`);
           } catch (error) {
             console.error('Error converting existing images:', error);
             throw new Error('Failed to process existing images. Please try uploading new images.');
           }
         }
         
-        // Append all form fields for UPDATE
         apiFormData.append('productName', formData.name);
         apiFormData.append('price', formData.price);
         apiFormData.append('originalPrice', formData.originalPrice || formData.price);
@@ -369,17 +415,6 @@ const AdminPage = () => {
         if (formData.rating) apiFormData.append('rating', formData.rating);
         if (formData.reviewCount) apiFormData.append('reviewCount', formData.reviewCount);
 
-        // Log FormData contents
-        console.log('=== UPDATE Request FormData ===');
-        for (let pair of apiFormData.entries()) {
-          if (pair[1] instanceof File) {
-            console.log(pair[0], `[File: ${pair[1].name}, Size: ${pair[1].size} bytes]`);
-          } else {
-            console.log(pair[0], pair[1]);
-          }
-        }
-        console.log('================================');
-        
         const response = await axios.put(
           `${URLS.UpdateProduct}/${productId}`, 
           apiFormData, 
@@ -403,7 +438,6 @@ const AdminPage = () => {
         }
         
       } else {
-        // ADD MODE - Always multipart with images
         if (newImageFiles && newImageFiles.length > 0) {
           newImageFiles.forEach((file) => {
             apiFormData.append('images', file);
@@ -454,12 +488,6 @@ const AdminPage = () => {
                           error.message || 
                           'Could not save product';
       
-      console.error('Full error details:', {
-        response: error.response?.data,
-        status: error.response?.status,
-        message: errorMessage
-      });
-      
       toast({
         title: 'Operation Failed',
         description: errorMessage,
@@ -503,6 +531,8 @@ const AdminPage = () => {
     orders.map((o) => o.user?._id || o.user?.id || o.userId).filter(Boolean)
   ).size;
 
+
+  
   return (
     <div className="min-h-screen flex flex-col bg-grey-50">
       <Header />
@@ -619,9 +649,10 @@ const AdminPage = () => {
                           <TableHead>Order ID</TableHead>
                           <TableHead>Customer</TableHead>
                           <TableHead>Total</TableHead>
-                          <TableHead>Delivery Status</TableHead>
+                          <TableHead>Status</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Actions</TableHead>
+                          <TableHead>View Details</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -638,9 +669,9 @@ const AdminPage = () => {
                                 {id?.slice(-8) || 'N/A'}
                               </TableCell>
                               <TableCell>
-                                {order?.user?.name || order?.address?.fullName || order?.shippingAddress?.name || 'N/A'}
+                                {order?.user?.name || order?.address?.fullName || 'N/A'}
                               </TableCell>
-                              <TableCell>{formatPrice(order.amount || order.total || 0)}</TableCell>
+                              <TableCell>{formatPrice(order.amount || 0)}</TableCell>
                               <TableCell>
                                 <Badge className={getStatusColor(current)}>
                                   {labelFromDeliveryStatus(current)}
@@ -656,7 +687,7 @@ const AdminPage = () => {
                                     onValueChange={(v) => setSelectedStatuses((p) => ({ ...p, [id]: v }))}
                                     disabled={isSaving}
                                   >
-                                    <SelectTrigger className="w-44">
+                                    <SelectTrigger className="w-40">
                                       <SelectValue placeholder="Select status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -670,6 +701,7 @@ const AdminPage = () => {
 
                                   <Button
                                     variant="default"
+                                    size="sm"
                                     onClick={() => handleConfirmStatus(order)}
                                     disabled={isUnchanged || isSaving}
                                     className="bg-brand-primary-500 hover:bg-brand-primary-600"
@@ -677,13 +709,23 @@ const AdminPage = () => {
                                     {isSaving ? (
                                       <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Confirming...
+                                        Saving...
                                       </>
                                     ) : (
-                                      'Confirm'
+                                      'Update'
                                     )}
                                   </Button>
                                 </div>
+                              </TableCell>
+                              <TableCell>
+                                <button
+                                  onClick={() => openOrderDetails(order)}
+                                  className="flex items-center gap-2 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  aria-label="View order details"
+                                  title="View Order Details"
+                                >
+                                  <Eye className="w-5 h-5" />
+                                </button>
                               </TableCell>
                             </TableRow>
                           );
@@ -697,92 +739,115 @@ const AdminPage = () => {
           )}
 
           {/* Products Table */}
-          {activeTab === 'products' && (
-            <div className="mt-0">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Products</CardTitle>
-                  <Button 
-                    onClick={handleOpenAddProduct}
-                    className="bg-brand-primary-500 hover:bg-brand-primary-600"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Product
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {!products || products.length === 0 ? (
-                    <div className="text-center py-12 text-grey-500">
-                      <Package className="w-12 h-12 mx-auto mb-3 text-grey-300" />
-                      <p>No products available</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Image</TableHead>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead>Price</TableHead>
-                            <TableHead>Stock</TableHead>
-                            <TableHead>Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {products.map((product) => (
-                            <TableRow key={product._id || product.id}>
-                              <TableCell>
-                                <img
-                                  src={product.image || (Array.isArray(product.images) ? product.images[0] : '') || '/placeholder.jpg'}
-                                  alt={product.name || product.productName || 'Product'}
-                                  className="w-12 h-12 object-cover rounded border border-grey-200"
-                                  onError={(e) => { e.currentTarget.src = '/placeholder.jpg'; }}
-                                />
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                {product.name || product.productName}
-                              </TableCell>
-                              <TableCell>{product.category}</TableCell>
-                              <TableCell>{formatPrice(product.price)}</TableCell>
-                              <TableCell>
-                                <Badge variant={product.inStock ? 'default' : 'destructive'}>
-                                  {product.inStock ? 'In Stock' : 'Out of Stock'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex space-x-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleOpenEditProduct(product)}
-                                    className="hover:bg-blue-50"
-                                  >
-                                    <Edit2 className="w-4 h-4 text-blue-600" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setProductToDelete(product);
-                                      setDeleteDialogOpen(true);
-                                    }}
-                                    className="hover:bg-red-50"
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-600" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
+      {/* Products Table */}
+{activeTab === 'products' && (
+  <div className="mt-0">
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Products</CardTitle>
+        <Button 
+          onClick={handleOpenAddProduct}
+          className="bg-brand-primary-500 hover:bg-brand-primary-600"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Product
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {!products || products.length === 0 ? (
+          <div className="text-center py-12 text-grey-500">
+            <Package className="w-12 h-12 mx-auto mb-3 text-grey-300" />
+            <p>No products available</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Image</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products.map((product) => {
+                  // Get image URL with multiple fallback options
+                  let imageUrl = '/placeholder.jpg';
+                  
+                  if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+                    imageUrl = product.images[0];
+                  } else if (product.image) {
+                    imageUrl = product.image;
+                  } else if (product.imageUrl) {
+                    imageUrl = product.imageUrl;
+                  }
+
+                  return (
+                    <TableRow key={product._id || product.id}>
+                      <TableCell>
+                        <div className="w-16 h-16 bg-grey-100 rounded border border-grey-200 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={imageUrl}
+                            alt={product.name || product.productName || 'Product'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = '/placeholder.jpg';
+                            }}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {product.name || product.productName}
+                      </TableCell>
+                      <TableCell>
+                        {product.category || product.categories?.[0] || 'N/A'}
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {formatPrice(product.price)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={product.inStock ? 'default' : 'destructive'}>
+                          {product.inStock ? `In Stock (${product.quantity || 0})` : 'Out of Stock'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEditProduct(product)}
+                            className="hover:bg-blue-50"
+                          >
+                            <Edit2 className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setProductToDelete(product);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  </div>
+)}
+
         </div>
       </main>
 
@@ -837,6 +902,219 @@ const AdminPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Order Details Modal */}
+      {showOrderModal && selectedOrder && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={closeOrderModal}
+          style={{ overflow: 'auto' }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="sticky top-0 flex justify-between items-center p-4 border-b bg-white">
+              <h5 className="text-lg font-semibold text-grey-800">
+                Order Details #{selectedOrder._id?.slice(-8)}
+              </h5>
+              <button
+                onClick={closeOrderModal}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-6 h-6 text-grey-600" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 space-y-4">
+              {/* Customer & Order Date */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h6 className="font-semibold mb-2 text-grey-800">Customer</h6>
+                  <div className="bg-grey-50 rounded-lg p-3 border border-grey-200">
+                    <p className="font-medium text-grey-800">{selectedOrder.user?.name || 'N/A'}</p>
+                    <p className="text-sm text-grey-600">{selectedOrder.user?.email || 'N/A'}</p>
+                  </div>
+                </div>
+                <div>
+                  <h6 className="font-semibold mb-2 text-grey-800">Order Date</h6>
+                  <div className="bg-grey-50 rounded-lg p-3 border border-grey-200">
+                    <p className="text-sm text-grey-800">
+                      {new Date(selectedOrder.createdAt).toLocaleDateString('en-IN', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Status */}
+              <div>
+                <h6 className="font-semibold mb-2 text-grey-800">Order Status</h6>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge className={`${getStatusColor(selectedOrder.status)} text-white`}>
+                    Payment: {selectedOrder.status}
+                  </Badge>
+                  <Badge className={getStatusColor(selectedOrder.deliveryStatus)}>
+                    Delivery: {labelFromDeliveryStatus(selectedOrder.deliveryStatus)}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Order Items */}
+              {/* <div>
+                <h6 className="font-semibold mb-3 text-grey-800">Order Items ({selectedOrder.items?.length || 0})</h6>
+                <div className="space-y-2 border rounded-lg p-3">
+                  {selectedOrder.items?.map((item, idx) => (
+                    <div key={idx} className="flex gap-3 pb-3 border-b last:border-b-0 last:pb-0">
+                      <div className="w-16 h-16 bg-grey-100 rounded flex items-center justify-center text-xs text-grey-500">
+                        Product ID: {item.productId?.slice(-4)}
+                      </div>
+                      <div className="flex-1">
+                        <h6 className="font-medium text-grey-800">{item.name || 'Product'}</h6>
+                        <p className="text-sm text-grey-600">Quantity: {item.quantity}</p>
+                        <p className="text-sm font-semibold text-grey-800">
+                          {formatPrice(item.price || 0)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-grey-800">
+                          {formatPrice((item.price || 0) * item.quantity)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div> */}
+
+
+{/* Order Items */}
+<div>
+  <h6 className="font-semibold mb-3 text-grey-800">Order Items ({selectedOrder.items?.length || 0})</h6>
+  <div className="space-y-2 border rounded-lg p-3">
+    {selectedOrder.items?.map((item, idx) => {
+      const product = orderProducts[item.productId];
+      const productImage = product?.images?.[0] || product?.image || product?.imageUrl;
+      const productName = product?.name || product?.productName || item.name || 'Product';
+      const productPrice = item.price || product?.price || 0;
+
+      return (
+        <div key={idx} className="flex gap-3 pb-3 border-b last:border-b-0 last:pb-0">
+          {/* Product Image */}
+          {productImage ? (
+            <img
+              src={productImage}
+              alt={productName}
+              className="w-16 h-16 object-cover rounded border border-grey-200"
+              onError={(e) => {
+                e.currentTarget.src = '/placeholder.jpg';
+              }}
+            />
+          ) : (
+            <div className="w-16 h-16 bg-grey-100 rounded flex items-center justify-center text-xs text-grey-500 border border-grey-200">
+              {loadingProducts ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                'No Image'
+              )}
+            </div>
+          )}
+          
+          <div className="flex-1">
+            <h6 className="font-medium text-grey-800">{productName}</h6>
+            <p className="text-xs text-grey-500">ID: {item.productId?.slice(-8)}</p>
+            <p className="text-sm text-grey-600">Quantity: {item.quantity}</p>
+            <p className="text-sm font-semibold text-grey-800">
+              {formatPrice(productPrice)} × {item.quantity}
+            </p>
+          </div>
+          
+          <div className="text-right">
+            <p className="text-sm font-bold text-grey-800">
+              {formatPrice(productPrice * item.quantity)}
+            </p>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
+
+              {/* Shipping Address */}
+              <div>
+                <h6 className="font-semibold mb-2 text-grey-800">Shipping Address</h6>
+                <div className="bg-grey-50 rounded-lg p-3 border border-grey-200">
+                  {selectedOrder.address ? (
+                    <div className="space-y-1">
+                      {selectedOrder.address.fullName && (
+                        <p className="font-medium text-grey-800">{selectedOrder.address.fullName}</p>
+                      )}
+                      {selectedOrder.address.address && (
+                        <p className="text-sm text-grey-700">{selectedOrder.address.address}</p>
+                      )}
+                      <p className="text-sm text-grey-700">
+                        {[
+                          selectedOrder.address.city,
+                          selectedOrder.address.state,
+                          selectedOrder.address.pincode
+                        ].filter(Boolean).join(', ')}
+                      </p>
+                      {selectedOrder.address.phone && (
+                        <p className="text-sm text-grey-700">
+                          <span className="font-medium">Phone:</span> {selectedOrder.address.phone}
+                        </p>
+                      )}
+                      {selectedOrder.address.email && (
+                        <p className="text-sm text-grey-700">
+                          <span className="font-medium">Email:</span> {selectedOrder.address.email}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-grey-600">No address available</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div>
+                <h6 className="font-semibold mb-2 text-grey-800">Order Summary</h6>
+                <div className="bg-grey-50 rounded-lg p-3 border border-grey-200 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-grey-700">Subtotal:</span>
+                    <span className="font-medium text-grey-800">{formatPrice(selectedOrder.amount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between pb-2 border-b">
+                    <span className="text-grey-700">Shipping:</span>
+                    <span className="text-green-600 font-medium">Free</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-grey-800">Total:</span>
+                    <span className="font-bold text-blue-600 text-lg">{formatPrice(selectedOrder.amount || 0)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t p-4 flex justify-end gap-2 bg-grey-50">
+              <button
+                onClick={closeOrderModal}
+                className="px-4 py-2 bg-grey-300 text-grey-800 rounded hover:bg-grey-400 transition-colors font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
