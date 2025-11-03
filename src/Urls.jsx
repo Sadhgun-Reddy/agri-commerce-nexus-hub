@@ -1,7 +1,8 @@
-const Url = "https://agri-tech-backend-07b8.onrender.com/";
+//const Url = "https://agri-tech-backend-07b8.onrender.com/";
 
 //  const Url = "https://dg99c8r5-5000.inc1.devtunnels.ms/";
 
+const Url = "http://18.60.101.203:5000/";
 
 export const URLS = {
   // User Sign In 
