@@ -11,7 +11,7 @@ export const URLS = {
   GetProfile: Url + "api/auth/profile",
   UpdateProfile: Url + "api/auth/update-profile",
   UpdatePassword: Url + "api/auth/update-password",
-  
+  SendMail: Url + "api/contact",
   // Products
   Products: Url + "api/products",
   BestSellers: Url + "api/products/best-sellers",
