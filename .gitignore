@@ -24,4 +24,8 @@ dist-ssr
 *.sw?
 
 dotenv
-.env.local
+.env
+
+node_modules/
+.env
+dist/
