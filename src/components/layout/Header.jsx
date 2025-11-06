@@ -204,6 +204,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext.jsx';
 import LoginDialog from '@/components/auth/LoginDialog.jsx';
+import logo from "/logo.jpg"
 
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -268,12 +269,17 @@ const Header = () => {
       <div className="container mx-auto flex h-16 items-center px-4">
         {/* Logo */}
         <Link to="/" className="flex items-center space-x-2">
-          <div className="h-8 w-8 rounded-lg bg-brand-primary-500 flex items-center justify-center">
+          {/* <div className="h-8 w-8 rounded-lg bg-brand-primary-500 flex items-center justify-center">
             <span className="text-white font-bold text-lg">A</span>
           </div>
           <span className="hidden font-bold sm:inline-block text-xl">
             Agri-Commerce
-          </span>
+          </span> */}
+          <img 
+            className='w-28'
+            src={logo}
+            alt='logo'
+          />
         </Link>
 
         {/* Desktop Navigation */}
