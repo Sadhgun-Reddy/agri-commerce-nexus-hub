@@ -6,7 +6,6 @@ import { toast } from '@/hooks/use-toast.js';
 const AppContext = createContext(undefined);
 
 // API base URL
-const API_BASE_URL = "https://agri-tech-backend-07b8.onrender.com/api/auth";
 
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -446,7 +445,7 @@ export const AppProvider = ({ children }) => {
       let token = localStorage.getItem('authToken');
 
       if (!token) {
-        const response = await axios.post(`${API_BASE_URL}/signin`, { identifier, password });
+        const response = await axios.post(URLS.UserSignUp, { identifier, password });
         token = response.data.data.token;
         localStorage.setItem('authToken', token);
       }
