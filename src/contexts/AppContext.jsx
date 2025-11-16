@@ -445,7 +445,7 @@ export const AppProvider = ({ children }) => {
       let token = localStorage.getItem('authToken');
 
       if (!token) {
-        const response = await axios.post(URLS.UserSignUp, { identifier, password });
+        const response = await axios.post(URLS.UserLogin, { identifier, password });
         token = response.data.data.token;
         localStorage.setItem('authToken', token);
       }
