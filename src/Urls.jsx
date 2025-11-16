@@ -2,7 +2,7 @@
 
 //  const Url = "https://dg99c8r5-5000.inc1.devtunnels.ms/";
 
-const Url = "http://18.60.101.203:5000/";
+const Url = "https://kisankrushi.in/";
 
 export const URLS = {
   // User Sign In 
@@ -20,7 +20,7 @@ export const URLS = {
   UpdateProduct: Url + "api/products/update",
   DeleteProduct: Url + "api/products/delete",
   AddProduct: Url + "api/products/upload",
-   GetProductById: Url + "/api/products/:productId/:id",
+   GetProductById: Url + "api/products/:productId/:id",
   
   
   // Wishlist 
