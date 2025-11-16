@@ -2,7 +2,7 @@
 
 //  const Url = "https://dg99c8r5-5000.inc1.devtunnels.ms/";
 
-const Url = "https://kisankrushi.in/";
+const Url = "https://kisankrushi.in/api/";
 
 export const URLS = {
   // User Sign In 
