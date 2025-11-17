@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge.jsx';
 import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import axios from 'axios';
-import { URLS } from '@/Urls';
+import { URLS } from '../Urls.jsx';
 import RemainingPayment from './Remaining.jsx';
 const OrdersPage = () => {
   const { user, products } = useApp();
@@ -114,6 +114,47 @@ const OrdersPage = () => {
     }
   };
 
+
+
+  const handlePayRemaining = async (order) => {
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const res = await axios.post(
+      URLS.remainingAmount(order.id),
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    const { orderId, amount, key } = res.data;
+
+    const razorpayOptions = {
+      key,
+      amount,
+      currency: "INR",
+      order_id: orderId,
+      handler: function (response) {
+        toast({
+          title: "Payment Successful",
+          description: "Remaining amount has been paid!",
+        });
+        window.location.reload();
+      },
+    };
+
+    const rzp = new window.Razorpay(razorpayOptions);
+    rzp.open();
+
+  } catch (err) {
+    console.error(err);
+    toast({
+      title: "Error",
+      description: "Unable to process payment",
+      variant: "destructive",
+    });
+  }
+};
+
   const openOrderDetails = (order) => {
     setSelectedOrder(order);
     setShowModal(true);
@@ -140,21 +181,43 @@ const OrdersPage = () => {
         });
 
         const raw = res.data?.orders || res.data?.data?.orders || res.data?.data || [];
-        const normalized = Array.isArray(raw) ? raw.map(o => ({
-          id: o._id || o.id,
-          createdAt: o.createdAt || new Date().toISOString(),
-          status: o.status || 'paid',
-          deliveryStatus: o.deliveryStatus || 'placed',
-          amount: o.amount,
-          address: o.address || o.shippingAddress || {},
-          items: Array.isArray(o.items) ? o.items.map(it => ({
-            productId: String(it.productId || it.product || it._id),
-            quantity: it.quantity || 1,
-            name: it.name,
-            price: it.price,
-            image: it.image,
-          })) : [],
-        })) : [];
+        // const normalized = Array.isArray(raw) ? raw.map(o => ({
+        //   id: o._id || o.id,
+        //   createdAt: o.createdAt || new Date().toISOString(),
+        //   status: o.status || 'paid',
+        //   deliveryStatus: o.deliveryStatus || 'placed',
+        //   amount: o.amount,
+        //   address: o.address || o.shippingAddress || {},
+        //   items: Array.isArray(o.items) ? o.items.map(it => ({
+        //     productId: String(it.productId || it.product || it._id),
+        //     quantity: it.quantity || 1,
+        //     name: it.name,
+        //     price: it.price,
+        //     image: it.image,
+        //   })) : [],
+        // })) : [];
+
+
+const normalized = Array.isArray(raw) ? raw.map(o => ({
+  id: o._id || o.id,
+  createdAt: o.createdAt || new Date().toISOString(),
+  status: o.status || 'paid',
+  deliveryStatus: o.deliveryStatus || 'placed',
+  amount: o.amount,
+
+  // ✅ Add this line
+  remainingAmount: o.remainingAmount ?? (o.amount - (o.paidAmount || 0)),
+
+  address: o.address || o.shippingAddress || {},
+  items: Array.isArray(o.items) ? o.items.map(it => ({
+    productId: String(it.productId || it.product || it._id),
+    quantity: it.quantity || 1,
+    name: it.name,
+    price: it.price,
+    image: it.image,
+  })) : [],
+})) : [];
+
 
         const cache = new Map(productMap);
         for (const order of normalized) {
@@ -231,24 +294,60 @@ const OrdersPage = () => {
       {new Date(order.createdAt).toLocaleDateString()}
     </p>
   </div>
-  <div className="flex flex-col items-end gap-2">
-    <Badge className={`${getStatusColor(order.status)} text-white text-xs`}>
-      <div className="flex items-center gap-1">
-        {getStatusIcon(order.paymentType)}
-        
-        <span>{order.status}</span>
-      </div>
-    </Badge>
+<div className="flex flex-col items-end gap-2">
+
+  {/* Payment Status Badge */}
+  <Badge className={`${getStatusColor(order.status)} text-white text-xs`}>
+    <div className="flex items-center gap-1">
+      {getStatusIcon(order.status)}
+      <span>{order.status}</span>
+    </div>
+  </Badge>
+
+<div className="flex flex-col items-end gap-1">
+
+  {/* Remaining Amount ABOVE Pay Now */}
+  {order.remainingAmount > 0 && (
+    <p className="text-xs font-semibold text-red-600">
+      Remaining: {formatINR(order.remainingAmount)}
+    </p>
+  )}
+
+  {/* Buttons in one row */}
+  <div className="flex items-center gap-2">
+
+    {order.remainingAmount > 0 && (
+      <button
+        onClick={() => handlePayRemaining(order)}
+        className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition"
+      >
+        Pay Now
+      </button>
+    )}
+
     <button
       onClick={() => openOrderDetails(order)}
       className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
-      aria-label="View order details"
     >
       <Eye className="w-6 h-6" />
       <span>View Details</span>
-
     </button>
+
   </div>
+</div>
+
+
+  {/* View Details Button */}
+  {/* <button
+    onClick={() => openOrderDetails(order)}
+    className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+  >
+    <Eye className="w-6 h-6" />
+    <span>View Details</span>
+  </button> */}
+
+</div>
+
 </div>
 
 {/* Shipping Status Badge */}
@@ -315,7 +414,7 @@ const OrdersPage = () => {
           onClick={closeModal}
           style={{ overflow: 'auto' }}
         >
-            <RemainingPayment order={selectedOrder} />
+            {/* <RemainingPayment order={selectedOrder} /> */}
           <div
             className="bg-white rounded-lg shadow-lg w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
