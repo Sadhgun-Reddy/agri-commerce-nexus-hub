@@ -23,6 +23,8 @@ const normalizeImageUrl = (src) => {
 
 const FeaturedProducts = () => {
   const { addToCart, toggleWishlist, isInWishlist } = useApp();
+  const { user, token } = useApp();
+
   const { toast } = useToast();
 
   const formatPrice = (price) => {
@@ -194,16 +196,38 @@ const FeaturedProducts = () => {
     return () => { isMounted = false; };
   }, []);
 
+  // const handleAddToCart = (product) => {
+  //   if (product?.inStock) {
+  //     addToCart(product);
+  //     toast({
+  //       title: "Added to cart!",
+  //       description: `${product.name} has been added to your cart.`,
+  //       variant: 'success',
+  //     });
+  //   }
+  // };
+
+
+
   const handleAddToCart = (product) => {
-    if (product?.inStock) {
-      addToCart(product);
-      toast({
-        title: "Added to cart!",
-        description: `${product.name} has been added to your cart.`,
-        variant: 'success',
-      });
-    }
-  };
+  if (!user) {
+    toast({
+      title: "Please login first",
+      description: "You must sign in before adding items to cart.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (product?.inStock) {
+    addToCart(product);
+    toast({
+      title: "Added to cart!",
+      description: `${product.name} has been added to your cart.`,
+      variant: "success",
+    });
+  }
+};
 
   return (
     <section className="py-16 bg-grey-50">
@@ -232,7 +256,7 @@ const FeaturedProducts = () => {
                     alt={product.name}
                     className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
                   />
-                </Link>
+                </Link> 
                 
                 {/* Badges */}
                 <div className="absolute top-3 left-3">

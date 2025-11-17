@@ -204,7 +204,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext.jsx';
 import LoginDialog from '@/components/auth/LoginDialog.jsx';
-import logo from "/logo.jpg"
+import logo from "/kisankrushi-logo.png"
 
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);

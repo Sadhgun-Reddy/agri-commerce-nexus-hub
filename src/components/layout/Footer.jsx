@@ -41,13 +41,13 @@ const Footer = () => {
               <div className="h-8 w-8 rounded-lg bg-brand-primary-500 flex items-center justify-center">
                 <span className="text-white font-bold text-lg">A</span>
               </div>
-              <span className="font-bold text-xl">Agri-Commerce</span>
+              <span className="font-bold text-xl">Kisan Krushi</span>
             </div>
             <p className="text-sm text-grey-600 max-w-sm">
               Your trusted partner for quality farming equipment and agricultural supplies. 
               Empowering farmers with the best tools for sustainable agriculture.
             </p>
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <div className="flex items-center space-x-2 text-sm text-grey-600">
                 <Phone className="h-4 w-4" />
                 <span>+91 98765 43210</span>
@@ -60,7 +60,7 @@ const Footer = () => {
                 <MapPin className="h-4 w-4" />
                 <span>Mumbai, Maharashtra, India</span>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Company Links */}

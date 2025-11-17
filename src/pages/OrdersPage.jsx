@@ -9,7 +9,7 @@ import { useApp } from '@/contexts/AppContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import axios from 'axios';
 import { URLS } from '@/Urls';
-
+import RemainingPayment from './Remaining.jsx';
 const OrdersPage = () => {
   const { user, products } = useApp();
   const { toast } = useToast();
@@ -221,6 +221,7 @@ const OrdersPage = () => {
             <div className="space-y-3">
               {orders.map((order) => (
                 <Card key={order.id} className="p-4">
+
                   {/* Top Row - Payment Status & Date */}
                 {/* Top Row - Payment Status & Date */}
 <div className="flex justify-between items-start gap-4 mb-3">
@@ -233,7 +234,8 @@ const OrdersPage = () => {
   <div className="flex flex-col items-end gap-2">
     <Badge className={`${getStatusColor(order.status)} text-white text-xs`}>
       <div className="flex items-center gap-1">
-        {getStatusIcon(order.status)}
+        {getStatusIcon(order.paymentType)}
+        
         <span>{order.status}</span>
       </div>
     </Badge>
@@ -244,6 +246,7 @@ const OrdersPage = () => {
     >
       <Eye className="w-6 h-6" />
       <span>View Details</span>
+
     </button>
   </div>
 </div>
@@ -312,6 +315,7 @@ const OrdersPage = () => {
           onClick={closeModal}
           style={{ overflow: 'auto' }}
         >
+            <RemainingPayment order={selectedOrder} />
           <div
             className="bg-white rounded-lg shadow-lg w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
