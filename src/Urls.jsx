@@ -38,7 +38,7 @@ export const URLS = {
     createOrder: Url + "api/orders/place-order",
    verifypayment: Url + "api/orders/verify-payment",
     UserOrders: Url + "api/orders/my-orders",
-    remainingAmount:Url+ "api/orders/pay-remaining",
+    remainingAmount: Url + "api/orders/pay-remaining",
 
     
   UpdateStatus: (id) => Url + `api/orders/update-status/${id}`,

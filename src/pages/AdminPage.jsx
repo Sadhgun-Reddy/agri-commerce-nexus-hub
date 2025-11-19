@@ -936,7 +936,7 @@ const fetchProductDetails = async (productId) => {
                   <h6 className="font-semibold mb-2 text-grey-800">Customer</h6>
                   <div className="bg-grey-50 rounded-lg p-3 border border-grey-200">
                     <p className="font-medium text-grey-800">{selectedOrder.user?.name || 'N/A'}</p>
-                    <p className="text-sm text-grey-600">{selectedOrder.user?.email || 'N/A'}</p>
+                    <p className="text-sm text-grey-600">{selectedOrder.user?.phone || 'N/A'}</p>
                   </div>
                 </div>
                 <div>
@@ -1001,7 +1001,7 @@ const fetchProductDetails = async (productId) => {
   <div className="space-y-2 border rounded-lg p-3">
     {selectedOrder.items?.map((item, idx) => {
       const product = orderProducts[item.productId];
-      const productImage = product?.images?.[0] || product?.image || product?.imageUrl;
+      const productImage = item?.images ;
       const productName = product?.name || product?.productName || item.name || 'Product';
       const productPrice = item.price || product?.price || 0;
 
@@ -1029,7 +1029,7 @@ const fetchProductDetails = async (productId) => {
           
           <div className="flex-1">
             <h6 className="font-medium text-grey-800">{productName}</h6>
-            <p className="text-xs text-grey-500">ID: {item.productId?.slice(-8)}</p>
+            {/* <p className="text-xs text-grey-500">ID: {item.productId?.slice(-8)}</p> */}
             <p className="text-sm text-grey-600">Quantity: {item.quantity}</p>
             <p className="text-sm font-semibold text-grey-800">
               {formatPrice(productPrice)} × {item.quantity}
