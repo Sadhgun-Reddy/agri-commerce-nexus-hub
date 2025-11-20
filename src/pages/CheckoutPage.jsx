@@ -35,12 +35,29 @@ const CheckoutPage = () => {
     'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Andaman and Nicobar Islands','Chandigarh','Dadra and Nagar Haveli and Daman and Diu','Delhi','Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry'
   ];
 
+
+  // 🔥 Merge duplicate cart products (fix multiple entries issue)
+const mergedCartItems = useMemo(() => {
+  const map = {};
+  cartItems.forEach(item => {
+    const pid = item.productId || item.product?._id;
+    if (!map[pid]) map[pid] = { ...item };
+    else map[pid].quantity += item.quantity;
+  });
+  return Object.values(map);
+}, [cartItems]);
+
   const formatPrice = (price) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
 
-  const subtotal = useMemo(() => {
-    return cartItems.reduce((sum, item) => sum + ((item.price ?? item.product?.price ?? 0) * item.quantity), 0);
-  }, [cartItems]);
+const subtotal = useMemo(() => {
+  return mergedCartItems.reduce(
+    (sum, item) =>
+      sum + ((item.price ?? item.product?.price ?? 0) * item.quantity),
+    0
+  );
+}, [mergedCartItems]);
+
 
   const shipping = 0;
   const cgst = 0;
@@ -74,7 +91,7 @@ const CheckoutPage = () => {
   URLS.createOrder,
   {
     amount: amountToPay,             // ✔ matches backend
-    items: cartItems.map(ci => ({
+   items: mergedCartItems.map(ci => ({
       productId: ci.productId || ci.product?._id,
       quantity: ci.quantity,
     })),                             // ✔ matches backend
@@ -253,7 +270,7 @@ const CheckoutPage = () => {
                   <CardTitle>Order Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {cartItems.map((item) => (
+              {mergedCartItems.map((item) => (
                     <div key={item.id || item._id} className="flex items-center space-x-3">
                       <img src={item.image || item.product?.images?.[0] || '/placeholder.svg'} alt={item.name || item.product?.name} className="w-12 h-12 object-cover rounded" />
                       <div className="flex-1">
@@ -310,15 +327,21 @@ const CheckoutPage = () => {
                   </Button>
 
                   {/* Advance Payment */}
-                  <Button
-                    variant="outline"
-                    className="w-full mt-2"
-                    size="lg"
-                    onClick={() => handlePayment(total, 'advance')}
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? 'Processing...' : 'Pay ₹2000 in Advance'}
-                  </Button>
+                <Button
+  variant="outline"
+  className="w-full mt-2"
+  size="lg"
+  onClick={() => handlePayment(total, 'advance')}
+  disabled={isProcessing || total < 5000}
+>
+  {isProcessing ? 'Processing...' : 'Pay ₹2000 in Advance'}
+</Button>
+{total < 5000 && (
+  <p className="text-xs text-red-500 text-center mt-1">
+    Advance payment unavailable for orders below ₹5000
+  </p>
+)}
+
 
                   <p className="text-xs text-grey-500 text-center">A secure Razorpay popup will open to complete payment</p>
                 </CardContent>

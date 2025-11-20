@@ -649,10 +649,14 @@ const fetchProductDetails = async (productId) => {
                           <TableHead>Order ID</TableHead>
                           <TableHead>Customer</TableHead>
                           <TableHead>Total</TableHead>
+                           <TableHead>Paid Amount</TableHead>
+                           <TableHead>Remaining Amount </TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Actions</TableHead>
                           <TableHead>View Details</TableHead>
+                         
+
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -672,6 +676,8 @@ const fetchProductDetails = async (productId) => {
                                 {order?.user?.name || order?.address?.fullName || 'N/A'}
                               </TableCell>
                               <TableCell>{formatPrice(order.amount || 0)}</TableCell>
+                                <TableCell>{formatPrice(order.paidAmount || 0)}</TableCell>
+                                <TableCell>{formatPrice(order.remainingAmount || 0)}</TableCell>
                               <TableCell>
                                 <Badge className={getStatusColor(current)}>
                                   {labelFromDeliveryStatus(current)}
@@ -680,6 +686,7 @@ const fetchProductDetails = async (productId) => {
                               <TableCell>
                                 {new Date(order.createdAt).toLocaleDateString('en-IN')}
                               </TableCell>
+                              
                               <TableCell>
                                 <div className="flex items-center space-x-2">
                                   <Select 
@@ -726,7 +733,11 @@ const fetchProductDetails = async (productId) => {
                                 >
                                   <Eye className="w-5 h-5" />
                                 </button>
+
+                                
                               </TableCell>
+                            
+
                             </TableRow>
                           );
                         })}
