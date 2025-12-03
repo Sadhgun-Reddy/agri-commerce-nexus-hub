@@ -1,12 +1,12 @@
 import React from 'react';
-import { Facebook, Twitter, Instagram, Mail, Phone, MapPin } from 'lucide-react';
+import { Facebook, MessageCircle, Instagram } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Footer = () => {
   const socialLinks = [
-    { icon: Facebook, href: '#', label: 'Facebook' },
-    { icon: Twitter, href: '#', label: 'Twitter' },
-    { icon: Instagram, href: '#', label: 'Instagram' },
+    { icon: Facebook, href: 'https://www.facebook.com/share/17fHiRLbmd/', label: 'Facebook' },
+    { icon: MessageCircle, href: 'https://wa.me/+918978934432', label: 'WhatsApp' },
+    { icon: Instagram, href: 'https://www.instagram.com/kisan_krushi_agro_industries/', label: 'Instagram' },
   ];
 
   const footerLinks = {
@@ -38,29 +38,16 @@ const Footer = () => {
           {/* Company Info */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-lg bg-brand-primary-500 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">A</span>
+              <div className="h-32 w-40  flex items-center justify-center">
+                <img
+                  src='/logo.jpg'
+                />
               </div>
-              <span className="font-bold text-xl">Kisan Krushi</span>
             </div>
             <p className="text-sm text-grey-600 max-w-sm">
               Your trusted partner for quality farming equipment and agricultural supplies. 
               Empowering farmers with the best tools for sustainable agriculture.
             </p>
-            {/* <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-sm text-grey-600">
-                <Phone className="h-4 w-4" />
-                <span>+91 98765 43210</span>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-grey-600">
-                <Mail className="h-4 w-4" />
-                <span>support@agri-commerce.in</span>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-grey-600">
-                <MapPin className="h-4 w-4" />
-                <span>Mumbai, Maharashtra, India</span>
-              </div>
-            </div> */}
           </div>
 
           {/* Company Links */}

@@ -29,7 +29,7 @@ const HomePage = () => {
         {/* SEO Content Section */}
         <section className="py-16 bg-white">
           <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto prose prose-lg">
+            <div className="max-w-5xl mx-auto prose prose-lg">
               <h2 className="text-3xl font-bold text-grey-800 mb-6 text-center">
                 Your Trusted Partner in Modern Agriculture
               </h2>

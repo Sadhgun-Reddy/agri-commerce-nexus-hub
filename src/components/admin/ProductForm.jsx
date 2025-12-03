@@ -17,9 +17,9 @@ const ProductForm = ({ product, onSave, onCancel }) => {
     brand: '',
     sku: '',
     inStock: true,
-    rating: 4.0,
-    reviewCount: 0,
-    discount: 0,
+    rating: '',
+    reviewCount: '',
+    discount: '',
     badge: '',
     quantity: '',
     description: '',
@@ -55,7 +55,9 @@ const ProductForm = ({ product, onSave, onCancel }) => {
     'Threashers',
     'Pillet making machines',
     'Pulverizers',
-    'Lawn/Stubble Movers'
+    'Lawn/Stubble Movers',
+    "tractor Operated Equipments",
+    "Harvesting Equipments"
   ];
 
   // Cleanup object URLs on unmount to prevent memory leaks
@@ -80,9 +82,9 @@ const ProductForm = ({ product, onSave, onCancel }) => {
         brand: product.brand || '',
         sku: product.sku || product.SKU || '',
         inStock: product.inStock !== undefined ? product.inStock : true,
-        rating: product.rating || 4.0,
-        reviewCount: product.reviewCount || product.reviewCounts || product.reviews || 0,
-        discount: product.discount || 0,
+        rating: product.rating || '',
+        reviewCount: product.reviewCount || product.reviewCounts || product.reviews || '',
+        discount: product.discount || '',
         badge: product.badge || '',
         quantity: product.quantity?.toString() || '',
         description: product.description || '',
@@ -124,7 +126,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
       brand: '',
       sku: '',
       inStock: true,
-      rating: 4.0,
+      rating: 0,
       reviewCount: 0,
       discount: 0,
       badge: '',
@@ -543,6 +545,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
             max="5"
             value={formData.rating}
             onChange={handleInputChange}
+            placeholder="0.00"
           />
         </div>
         <div>
@@ -554,6 +557,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
             min="0"
             value={formData.reviewCount}
             onChange={handleInputChange}
+            placeholder="0.00"
           />
         </div>
         <div>
@@ -566,6 +570,7 @@ const ProductForm = ({ product, onSave, onCancel }) => {
             max="100"
             value={formData.discount}
             onChange={handleInputChange}
+            placeholder="0.00"
           />
         </div>
       </div>

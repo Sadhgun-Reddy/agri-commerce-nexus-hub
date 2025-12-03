@@ -20,7 +20,7 @@ export const URLS = {
   UpdateProduct: Url + "api/products/update",
   DeleteProduct: Url + "api/products/delete",
   AddProduct: Url + "api/products/upload",
-   GetProductById: Url + "api/products/:productId/:id",
+  GetProductById: Url + "api/products",
   
   
   // Wishlist 

@@ -43,7 +43,7 @@ const ProductsPage = () => {
     'Intercultivators/Power weeders', 'Earth Augers', 'Seeders/planters', 'Waterpumps & Engines',
     'Sprayers', 'Brush cutters', 'Chaff cutters', 'Milking machines', 'Cow mats', 'Foggers',
     'Power tools', 'Chain Saw', 'Agriculture Shredders', 'Harvesting Machines', 'Threashers',
-    'Pillet making machines', 'Pulverizers', 'Lawn/Stubble Movers'
+    'Pillet making machines', 'Pulverizers', 'Lawn/Stubble Movers','Tractor Operated Equipments','Harvesting Equipments'
   ];
 
   const filteredProducts = useMemo(() => {
